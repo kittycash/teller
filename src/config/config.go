@@ -15,7 +15,7 @@ import (
 	"github.com/skycoin/skycoin/src/visor"
 	"github.com/skycoin/skycoin/src/wallet"
 
-	"github.com/skycoin/teller/src/util/mathutil"
+	"github.com/kittycash/teller/src/util/mathutil"
 )
 
 // Config represents the configuration root
@@ -33,6 +33,8 @@ type Config struct {
 	BtcAddresses string `mapstructure:"btc_addresses"`
 	// Path of ETH addresses JSON file
 	EthAddresses string `mapstructure:"eth_addresses"`
+	// Path of SKY addresses JSON file
+	SkyAddresses string `mapstructure:"sky_addresses"`
 
 	Teller Teller `mapstructure:"teller"`
 
@@ -42,7 +44,8 @@ type Config struct {
 
 	BtcScanner   BtcScanner   `mapstructure:"btc_scanner"`
 	EthScanner   EthScanner   `mapstructure:"eth_scanner"`
-	SkyExchanger SkyExchanger `mapstructure:"sky_exchanger"`
+	SkyScanner   SkyScanner   `mapstructure:"sky_scanner"`
+	BoxExchanger BoxExchanger `mapstructure:"box_exchanger"`
 
 	Web Web `mapstructure:"web"`
 
@@ -62,6 +65,7 @@ type Teller struct {
 // SkyRPC config for Skycoin daemon node RPC
 type SkyRPC struct {
 	Address string `mapstructure:"address"`
+	Enabled bool `mapstructure:"enabled"`
 }
 
 // BtcRPC config for btcrpc
@@ -96,43 +100,51 @@ type EthScanner struct {
 	ConfirmationsRequired int64         `mapstructure:"confirmations_required"`
 }
 
-// SkyExchanger config for skycoin sender
-type SkyExchanger struct {
+// SkyScanner config for SKY Scanner
+type SkyScanner struct {
+	// How often to try to scan for blocks
+	ScanPeriod        time.Duration `mapstructure:"scan_period"`
+	InitialScanHeight int64         `mapstructure:"initial_scan_height"`
+}
+
+// BoxExchanger config for box sender
+type BoxExchanger struct {
 	// SKY/BTC exchange rate. Can be an int, float or rational fraction string
-	SkyBtcExchangeRate string `mapstructure:"sky_btc_exchange_rate"`
-	SkyEthExchangeRate string `mapstructure:"sky_eth_exchange_rate"`
+	BoxBtcExchangeRate string `mapstructure:"sky_btc_exchange_rate"`
+	BoxSkyExchangeRate string `mapstructure:"sky_eth_exchange_rate"`
 	// Number of decimal places to truncate SKY to
 	MaxDecimals int `mapstructure:"max_decimals"`
+	// Path of hot kitty wallet file on disk
+	Wallet string `mapstructure:"wallet"`
 	// How long to wait before rechecking transaction confirmations
 	TxConfirmationCheckWait time.Duration `mapstructure:"tx_confirmation_check_wait"`
-	// Path of hot Skycoin wallet file on disk
-	Wallet string `mapstructure:"wallet"`
-	// Allow sending of coins (deposits will still be received and recorded)
+	// Allow sending of boxes (deposits will still be received and recorded)
 	SendEnabled bool `mapstructure:"send_enabled"`
 }
 
-// Validate validates the SkyExchanger config
-func (c SkyExchanger) Validate() error {
+// Validate validates the BoxExchanger config
+func (c BoxExchanger) Validate() error {
 	if errs := c.validate(); len(errs) != 0 {
 		return errs[0]
 	}
 
-	if errs := c.validateWallet(); len(errs) != 0 {
-		return errs[0]
-	}
+	//@TODO
+	//if errs := c.validateWallet(); len(errs) != 0 {
+	//	return errs[0]
+	//}
 
 	return nil
 }
 
-func (c SkyExchanger) validate() []error {
+func (c BoxExchanger) validate() []error {
 	var errs []error
 
-	if _, err := mathutil.ParseRate(c.SkyBtcExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.sky_btc_exchange_rate invalid: %v", err))
+	if _, err := mathutil.ParseRate(c.BoxBtcExchangeRate); err != nil {
+		errs = append(errs, fmt.Errorf("sky_exchanger.box_btc_exchange_rate invalid: %v", err))
 	}
 
-	if _, err := mathutil.ParseRate(c.SkyEthExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.sky_eth_exchange_rate invalid: %v", err))
+	if _, err := mathutil.ParseRate(c.BoxSkyExchangeRate); err != nil {
+		errs = append(errs, fmt.Errorf("sky_exchanger.box_sky_exchange_rate invalid: %v", err))
 	}
 
 	if c.MaxDecimals < 0 {
@@ -146,26 +158,27 @@ func (c SkyExchanger) validate() []error {
 	return errs
 }
 
-func (c SkyExchanger) validateWallet() []error {
-	var errs []error
-
-	if c.Wallet == "" {
-		errs = append(errs, errors.New("sky_exchanger.wallet missing"))
-	}
-
-	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s does not exist", c.Wallet))
-	}
-
-	w, err := wallet.Load(c.Wallet)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
-	} else if err := w.Validate(); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s is invalid: %v", c.Wallet, err))
-	}
-
-	return errs
-}
+//
+//func (c BoxExchanger) validateWallet() []error {
+//	var errs []error
+//
+//	if c.Wallet == "" {
+//		errs = append(errs, errors.New("sky_exchanger.wallet missing"))
+//	}
+//
+//	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
+//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s does not exist", c.Wallet))
+//	}
+//
+//	w, err := wallet.Load(c.Wallet)
+//	if err != nil {
+//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
+//	} else if err := w.Validate(); err != nil {
+//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s is invalid: %v", c.Wallet, err))
+//	}
+//
+//	return errs
+//}
 
 // Web config for the teller HTTP interface
 type Web struct {

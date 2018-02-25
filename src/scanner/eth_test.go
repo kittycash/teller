@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/teller/src/util/dbutil"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 var (
@@ -127,7 +127,7 @@ func setupEthScannerWithDB(t *testing.T, ethDB *bolt.DB, db *bolt.DB) *ETHScanne
 
 	// Blocks 2325205 through 2325214 are stored in eth.db
 	// Refer to https://etherscan.io/ or another explorer to see the block data
-	rpc := newDummyEthrpcclient(ethDB)
+	rpc := newDummyEthrpcclient(db)
 
 	// The hash of the initial scan block needs to be set. The others don't
 	//rpc.blockHashes[2325205] = "0xf2139b98f24f856f92f421a3bf9e5230e6426fc64d562b8a44f20159d561ca7c"

@@ -6,8 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/util/mathutil"
+	"github.com/kittycash/teller/src/scanner"
 )
 
 // Status deposit Status
@@ -18,9 +17,9 @@ const (
 	StatusWaitDeposit Status = iota
 	// StatusWaitSend deposit is ready for send
 	StatusWaitSend
-	// StatusWaitConfirm coins sent, but not confirmed yet
+	// StatusWaitConfirm kitty sent, but not confirmed yet
 	StatusWaitConfirm
-	// StatusDone coins sent and confirmed
+	// StatusDone kitty sent and confirmed
 	StatusDone
 	// StatusUnknown fallback value
 	StatusUnknown
@@ -61,26 +60,23 @@ func NewStatusFromStr(st string) Status {
 
 // BoundAddress records information about an address binding
 type BoundAddress struct {
-	SkyAddress string
-	Address    string
-	CoinType   string
-	BuyMethod  string
+	KittyID  string
+	Address  string
+	CoinType string
 }
 
+//@TODO add sky btc conversion rate?
 // DepositInfo records the deposit info
 type DepositInfo struct {
 	Seq            uint64
 	UpdatedAt      int64
 	Status         Status // TODO -- migrate to string statuses?
 	CoinType       string
-	SkyAddress     string
-	BuyMethod      string
+	KittyID        string
 	DepositAddress string
 	DepositID      string
 	Txid           string
-	ConversionRate string // SKY per other coin, as a decimal string (allows integers, floats, fractions)
 	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC)
-	SkySent        uint64 // SKY sent, measured in droplets
 	Error          string // An error that occurred during processing
 	// The original Deposit is saved for the records, in case there is a mistake.
 	// Do not use this data directly.  All necessary data is copied to the top level
@@ -90,8 +86,9 @@ type DepositInfo struct {
 
 // DepositStats records overall statistics about deposits
 type DepositStats struct {
-	TotalBTCReceived int64 `json:"total_btc_received"`
-	TotalSKYSent     int64 `json:"total_sky_sent"`
+	TotalBTCReceived int64  `json:"total_btc_received"`
+	TotalSKYReceived int64 `json:"total_sky_received"`
+	TotalBoxesSent   int64  `json:"total_boxes_sent"`
 }
 
 // ValidateForStatus does a consistency check of the data based upon the Status value
@@ -101,8 +98,8 @@ func (di DepositInfo) ValidateForStatus() error {
 		if di.Seq == 0 {
 			return errors.New("Seq missing")
 		}
-		if di.SkyAddress == "" {
-			return errors.New("SkyAddress missing")
+		if di.KittyID == "" {
+			return errors.New("KittyID missing")
 		}
 		if di.DepositAddress == "" {
 			return errors.New("DepositAddress missing")
@@ -116,20 +113,11 @@ func (di DepositInfo) ValidateForStatus() error {
 		if di.DepositValue == 0 {
 			return errors.New("DepositValue is zero")
 		}
-		if _, err := mathutil.ParseRate(di.ConversionRate); err != nil {
-			return err
-		}
-		switch di.BuyMethod {
-		case BuyMethodDirect, BuyMethodPassthrough:
-		case "":
-			return errors.New("BuyMethod missing")
-		default:
-			return errors.New("BuyMethod invalid")
-		}
 
 		return nil
 	}
 
+	//@TODO: refactor the statuses if required
 	switch di.Status {
 	case StatusDone:
 		if di.Error != ErrEmptySendAmount.Error() && di.Txid == "" {
@@ -145,9 +133,7 @@ func (di DepositInfo) ValidateForStatus() error {
 		if di.Txid == "" {
 			return errors.New("Txid missing")
 		}
-		if di.SkySent == 0 {
-			return errors.New("SkySent is zero")
-		}
+
 		return checkWaitSend()
 
 	case StatusWaitSend:

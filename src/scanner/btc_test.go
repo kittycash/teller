@@ -12,8 +12,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/teller/src/util/dbutil"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 const (
@@ -186,7 +186,7 @@ func testBtcScannerRunProcessedLoop(t *testing.T, scr *BTCScanner, nDeposits int
 					return err
 				}
 
-				require.True(t, d.Processed)
+				//require.True(t, d.Processed)
 				require.Equal(t, CoinTypeBTC, d.CoinType)
 				require.NotEmpty(t, d.Address)
 				require.NotEmpty(t, d.Value)
@@ -374,7 +374,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 			Height:    23505,
 			Tx:        "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
 			N:         1,
-			Processed: false,
+			//Processed: false,
 		},
 		{
 			CoinType:  CoinTypeBTC,
@@ -383,7 +383,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 			Height:    23505,
 			Tx:        "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
 			N:         1,
-			Processed: false,
+			//Processed: false,
 		},
 	}
 
@@ -394,7 +394,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 		Height:    23517,
 		Tx:        "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
 		N:         1,
-		Processed: true,
+		//Processed: true,
 	}
 
 	err := scr.Base.GetStorer().(*Store).db.Update(func(tx *bolt.Tx) error {
@@ -456,7 +456,7 @@ func testBtcScannerProcessDepositError(t *testing.T, btcDB *bolt.DB) {
 					return err
 				}
 
-				require.False(t, d.Processed)
+				//require.False(t, d.Processed)
 				require.Equal(t, CoinTypeBTC, d.CoinType)
 				require.Equal(t, "1LEkderht5M5yWj82M87bEd4XDBsczLkp9", d.Address)
 				require.NotEmpty(t, d.Value)

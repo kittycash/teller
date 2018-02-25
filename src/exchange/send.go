@@ -12,13 +12,15 @@ import (
 	"github.com/skycoin/skycoin/src/coin"
 	"github.com/skycoin/skycoin/src/util/droplet"
 
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/util/mathutil"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/mathutil"
 )
 
-// Sender is a component for sending coins
+//@TODO needs to be refactored for sending boxes
+
+// Sender is a component for sending boxes
 type Sender interface {
 	Status() error
 	Balance() (*cli.Balance, error)
@@ -33,7 +35,7 @@ type SendRunner interface {
 // Send reads deposits from a Processor and sends coins
 type Send struct {
 	log         logrus.FieldLogger
-	cfg         config.SkyExchanger
+	cfg         config.BoxExchanger
 	processor   Processor
 	sender      sender.Sender // sender provides APIs for sending skycoin
 	store       Storer        // deposit info storage
@@ -45,7 +47,7 @@ type Send struct {
 }
 
 // NewSend creates exchange service
-func NewSend(log logrus.FieldLogger, cfg config.SkyExchanger, store Storer, sender sender.Sender, processor Processor) (*Send, error) {
+func NewSend(log logrus.FieldLogger, cfg config.BoxExchanger, store Storer, sender sender.Sender, processor Processor) (*Send, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -314,7 +316,7 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 		di, err = s.store.UpdateDepositInfoCallback(di.DepositID, func(di DepositInfo) DepositInfo {
 			di.Status = StatusWaitConfirm
 			di.Txid = skyTx.TxIDHex()
-			di.SkySent = skySent
+			//di.SkySent = skySent
 			return di
 		}, func(di DepositInfo) error {
 			// NOTE: broadcastTransaction retries indefinitely on error

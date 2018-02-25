@@ -14,21 +14,22 @@ import (
 	"runtime/pprof"
 	"sync"
 	"time"
+	"github.com/google/gops/agent"
 
 	"github.com/boltdb/bolt"
 	btcrpcclient "github.com/btcsuite/btcd/rpcclient"
-	"github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/skycoin/teller/src/addrs"
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/exchange"
-	"github.com/skycoin/teller/src/monitor"
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/teller"
-	"github.com/skycoin/teller/src/util/logger"
+	"github.com/kittycash/teller/src/addrs"
+	kittyagent "github.com/kittycash/teller/src/agent"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/monitor"
+	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/teller"
+	"github.com/kittycash/teller/src/util/logger"
 )
 
 func main() {
@@ -79,29 +80,24 @@ func createBtcScanner(log logrus.FieldLogger, cfg config.Config, scanStore *scan
 	return btcScanner, nil
 }
 
-func createEthScanner(log logrus.FieldLogger, cfg config.Config, scanStore *scanner.Store) (*scanner.ETHScanner, error) {
-	ethrpc, err := scanner.NewEthClient(cfg.EthRPC.Server, cfg.EthRPC.Port)
+// createSkyScanner returns a new sky scanner instance
+func createSkyScanner(log logrus.FieldLogger, cfg config.Config, scanStore *scanner.Store) (*scanner.SKYScanner, error) {
+	skyrpc := scanner.NewSkyClient(cfg.SkyRPC.Address)
+	err := scanStore.AddSupportedCoin(scanner.CoinTypeSKY)
 	if err != nil {
-		log.WithError(err).Error("Connect geth failed")
-		return nil, err
+		log.WithError(err).Error("scanStore.AddSupportedCoin(scanner.CoinTypeSKY) failed")
 	}
 
-	err = scanStore.AddSupportedCoin(scanner.CoinTypeETH)
-	if err != nil {
-		log.WithError(err).Error("scanStore.AddSupportedCoin(scanner.CoinTypeETH) failed")
-		return nil, err
-	}
-
-	ethScanner, err := scanner.NewETHScanner(log, scanStore, ethrpc, scanner.Config{
-		ScanPeriod:            cfg.EthScanner.ScanPeriod,
-		ConfirmationsRequired: cfg.EthScanner.ConfirmationsRequired,
-		InitialScanHeight:     cfg.EthScanner.InitialScanHeight,
+	skyScanner, err := scanner.NewSKYScanner(log, scanStore, skyrpc, scanner.Config{
+		ScanPeriod: cfg.SkyScanner.ScanPeriod,
+		InitialScanHeight: cfg.SkyScanner.InitialScanHeight,
 	})
 	if err != nil {
-		log.WithError(err).Error("Open ethscan service failed")
+		log.WithError(err).Error("Open skyscan service failed")
 		return nil, err
 	}
-	return ethScanner, nil
+
+	return skyScanner, nil
 }
 
 func run() error {
@@ -179,13 +175,13 @@ func run() error {
 	}
 
 	var btcScanner *scanner.BTCScanner
-	var ethScanner *scanner.ETHScanner
+	var skyScanner *scanner.SKYScanner
 	var scanService scanner.Scanner
-	var scanEthService scanner.Scanner
+	var scanSkyService scanner.Scanner
 	var sendService *sender.SendService
 	var sendRPC sender.Sender
 	var btcAddrMgr *addrs.Addrs
-	var ethAddrMgr *addrs.Addrs
+	var skyAddrMgr  *addrs.Addrs
 
 	//create multiplexer to manage scanner
 	multiplexer := scanner.NewMultiplexer(log)
@@ -219,21 +215,20 @@ func run() error {
 			scanService = btcScanner
 		}
 
-		// enable eth scanner
-		if cfg.EthRPC.Enabled {
-			ethScanner, err = createEthScanner(rusloggger, cfg, scanStore)
+		// create sky scanner if its enabled
+		if cfg.SkyRPC.Enabled {
+			skyScanner, err = createSkyScanner(rusloggger, cfg, scanStore)
 			if err != nil {
-				log.WithError(err).Error("create eth scanner failed")
+				log.WithError(err).Error("create sky scanner failed")
 				return err
 			}
 
-			background("ethScanner.Run", errC, ethScanner.Run)
+			background("skyscanner.Run", errC, skyScanner.Run)
 
-			scanEthService = ethScanner
+			scanSkyService = skyScanner
 
-			if err := multiplexer.AddScanner(scanEthService, scanner.CoinTypeETH); err != nil {
-				log.WithError(err).Errorf("multiplexer.AddScanner of %s failed", scanner.CoinTypeETH)
-				return err
+			if err := multiplexer.AddScanner(scanSkyService, scanner.CoinTypeSKY); err != nil {
+				log.WithError(err).Errorf("multiplexer.AddScanner of %s failed", scanner.CoinTypeSKY)
 			}
 		}
 	}
@@ -250,7 +245,8 @@ func run() error {
 		sendRPC = sender.NewDummySender(log)
 		sendRPC.(*sender.DummySender).BindHandlers(dummyMux)
 	} else {
-		skyClient, err := sender.NewRPC(cfg.SkyExchanger.Wallet, cfg.SkyRPC.Address)
+		// @TODO needs to be replaced with sending kitty boxes
+		skyClient, err := sender.NewRPC(cfg.BoxExchanger.Wallet, cfg.SkyRPC.Address)
 		if err != nil {
 			log.WithError(err).Error("sender.NewRPC failed")
 			return err
@@ -272,13 +268,15 @@ func run() error {
 		}()
 	}
 
+	// @TODO the exchange service needs to handle sky and btc payment and then forward to sender to send the boxes
 	// create exchange service
 	exchangeStore, err := exchange.NewStore(log, db)
 	if err != nil {
 		log.WithError(err).Error("exchange.NewStore failed")
 		return err
 	}
-	exchangeClient, err := exchange.NewDirectExchange(log, cfg.SkyExchanger, exchangeStore, multiplexer, sendRPC)
+
+	exchangeClient, err := exchange.NewDirectExchange(log, cfg.BoxExchanger, exchangeStore, multiplexer, sendRPC)
 	if err != nil {
 		log.WithError(err).Error("exchange.NewDirectExchange failed")
 		return err
@@ -308,26 +306,37 @@ func run() error {
 		}
 	}
 
-	if cfg.EthRPC.Enabled {
-		// create ethcoin address manager
-		f, err := ioutil.ReadFile(cfg.EthAddresses)
+	if cfg.SkyRPC.Enabled {
+		// create sky address manager
+		f, err := ioutil.ReadFile(cfg.SkyAddresses)
 		if err != nil {
-			log.WithError(err).Error("Load deposit ethcoin address list failed")
+			log.WithError(err).Error("Load deposit sky address list failed")
 			return err
 		}
 
-		ethAddrMgr, err = addrs.NewETHAddrs(log, db, bytes.NewReader(f))
+		skyAddrMgr, err = addrs.NewSKYAddrs(log, db, bytes.NewReader(f))
 		if err != nil {
-			log.WithError(err).Error("Create ethcoin deposit address manager failed")
+			log.WithError(err).Error("Create sky deposit address manager failed")
 			return err
 		}
-		if err := addrManager.PushGenerator(ethAddrMgr, scanner.CoinTypeETH); err != nil {
-			log.WithError(err).Error("add eth address manager failed")
+		if err := addrManager.PushGenerator(skyAddrMgr, scanner.CoinTypeSKY); err != nil {
+			log.WithError(err).Error("add sky address manager failed")
 			return err
 		}
 	}
 
-	tellerServer := teller.New(log, exchangeClient, addrManager, cfg)
+	// create agent store
+	agentStore,err  := kittyagent.NewStore(log, db)
+	if err != nil {
+		log.WithError(err).Error("agent.NewStore failed")
+		return err
+	}
+
+	// create a new agent manager instance
+	agentCfg := kittyagent.Config{}
+	agentManager := kittyagent.New(log, agentCfg, agentStore)
+
+	tellerServer := teller.New(log, exchangeClient, addrManager, agentManager, cfg)
 
 	// Run the service
 	background("tellerServer.Run", errC, tellerServer.Run)
@@ -336,7 +345,7 @@ func run() error {
 	monitorCfg := monitor.Config{
 		Addr: cfg.AdminPanel.Host,
 	}
-	monitorService := monitor.New(log, monitorCfg, btcAddrMgr, ethAddrMgr, exchangeClient, btcScanner)
+	monitorService := monitor.New(log, monitorCfg, btcAddrMgr, exchangeClient, btcScanner)
 
 	background("monitorService.Run", errC, monitorService.Run)
 
@@ -368,11 +377,7 @@ func run() error {
 		log.Info("Shutting down btcScanner")
 		btcScanner.Shutdown()
 	}
-	// close the scan service
-	if ethScanner != nil {
-		log.Info("Shutting down ethScanner")
-		ethScanner.Shutdown()
-	}
+
 
 	// close exchange service
 	log.Info("Shutting down exchangeClient")

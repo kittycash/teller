@@ -5,14 +5,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/skycoin/teller/src/addrs"
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/exchange"
+	"github.com/kittycash/teller/src/addrs"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/agent"
 )
 
 var (
-	// ErrMaxBoundAddresses is returned when the maximum number of address to bind to a SKY address has been reached
-	ErrMaxBoundAddresses = errors.New("The maximum number of addresses have been assigned to this SKY address")
+	// ErrBoxAlreadyBound is returned when a box is already bound to a payment addresss
+	ErrBoxAlreadyBound = errors.New("Box already bound to a payment address")
 	// ErrBindDisabled is returned if address binding is disabled
 	ErrBindDisabled = errors.New("Address binding is disabled")
 )
@@ -27,7 +28,7 @@ type Teller struct {
 }
 
 // New creates a Teller
-func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, cfg config.Config) *Teller {
+func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, agentManager agent.AgentManager, cfg config.Config) *Teller {
 	return &Teller{
 		cfg:  cfg.Teller,
 		log:  log.WithField("prefix", "teller"),
@@ -37,6 +38,7 @@ func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addr
 			cfg:         cfg.Teller,
 			exchanger:   exchanger,
 			addrManager: addrManager,
+			agentManager: agentManager,
 		}, exchanger),
 	}
 }
@@ -76,24 +78,20 @@ type Service struct {
 	cfg         config.Teller
 	exchanger   exchange.Exchanger // exchange Teller client
 	addrManager *addrs.AddrManager // address manager
+	agentManager agent.AgentManager // agent manager
 }
 
-// BindAddress binds skycoin address with a deposit address according to coinType
+
+// BindAddress binds kittyID with a deposit address according to coinType
 // return deposit address
-func (s *Service) BindAddress(skyAddr, coinType string) (*exchange.BoundAddress, error) {
+func (s *Service) BindAddress(kittyID, coinType string) (*exchange.BoundAddress, error) {
 	if !s.cfg.BindEnabled {
 		return nil, ErrBindDisabled
 	}
 
-	if s.cfg.MaxBoundAddresses > 0 {
-		num, err := s.exchanger.GetBindNum(skyAddr)
-		if err != nil {
-			return nil, err
-		}
-
-		if num >= s.cfg.MaxBoundAddresses {
-			return nil, ErrMaxBoundAddresses
-		}
+	// check if box is already bound to a payment address
+	if s.exchanger.IsBound(kittyID) {
+		return nil, ErrBoxAlreadyBound
 	}
 
 	depositAddr, err := s.addrManager.NewAddress(coinType)
@@ -101,7 +99,7 @@ func (s *Service) BindAddress(skyAddr, coinType string) (*exchange.BoundAddress,
 		return nil, err
 	}
 
-	return s.exchanger.BindAddress(skyAddr, depositAddr, coinType)
+	return s.exchanger.BindAddress(kittyID, depositAddr, coinType)
 }
 
 // GetDepositStatuses returns deposit status of given skycoin address

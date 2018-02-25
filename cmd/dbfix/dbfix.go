@@ -12,8 +12,8 @@ import (
 
 	"github.com/skycoin/skycoin/src/cipher"
 
-	"github.com/skycoin/teller/src/exchange"
-	"github.com/skycoin/teller/src/scanner"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/scanner"
 )
 
 const usage = `dbfix <dbfile>

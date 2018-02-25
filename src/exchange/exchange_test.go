@@ -20,10 +20,10 @@ import (
 	"github.com/skycoin/skycoin/src/cipher"
 	"github.com/skycoin/skycoin/src/coin"
 
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 type dummySender struct {

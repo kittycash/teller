@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/util/dbutil"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 type MockStore struct {

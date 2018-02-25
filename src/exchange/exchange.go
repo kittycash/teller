@@ -9,9 +9,9 @@ import (
 
 	"github.com/skycoin/skycoin/src/api/cli"
 
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/sender"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/teller/src/sender"
 )
 
 const (
@@ -35,19 +35,7 @@ var (
 	ErrDepositStatusInvalid = errors.New("Deposit status cannot be handled")
 	// ErrNoBoundAddress is returned if no skycoin address is bound to a deposit's address
 	ErrNoBoundAddress = errors.New("Deposit has no bound skycoin address")
-	// ErrInvalidBuyMethod is returned if BindAddress is called with an invalid buy method
-	ErrInvalidBuyMethod = errors.New("Invalid buy method")
 )
-
-// ValidateBuyMethod returns an error if a buy method string is invalid
-func ValidateBuyMethod(m string) error {
-	switch m {
-	case BuyMethodDirect, BuyMethodPassthrough:
-		return nil
-	default:
-		return ErrInvalidBuyMethod
-	}
-}
 
 // DepositFilter filters deposits
 type DepositFilter func(di DepositInfo) bool
@@ -60,10 +48,10 @@ type Runner interface {
 
 // Exchanger provides APIs to interact with the exchange service
 type Exchanger interface {
-	BindAddress(skyAddr, depositAddr, coinType string) (*BoundAddress, error)
+	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
 	GetDepositStatuses(skyAddr string) ([]DepositStatus, error)
 	GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDetail, error)
-	GetBindNum(skyAddr string) (int, error)
+	IsBound(kittyAddr string) bool
 	GetDepositStats() (*DepositStats, error)
 	Status() error
 	Balance() (*cli.Balance, error)
@@ -71,12 +59,11 @@ type Exchanger interface {
 
 // Exchange encompasses an entire coin<>skycoin deposit-process-send flow
 type Exchange struct {
-	log       logrus.FieldLogger
-	store     Storer
-	cfg       config.SkyExchanger
-	buyMethod string
-	quit      chan struct{}
-	done      chan struct{}
+	log   logrus.FieldLogger
+	store Storer
+	cfg   config.BoxExchanger
+	quit  chan struct{}
+	done  chan struct{}
 
 	Receiver  ReceiveRunner
 	Processor ProcessRunner
@@ -84,7 +71,7 @@ type Exchange struct {
 }
 
 // NewDirectExchange creates an Exchange which performs "direct buy", i.e. directly selling from a local skycoin wallet
-func NewDirectExchange(log logrus.FieldLogger, cfg config.SkyExchanger, store Storer, multiplexer *scanner.Multiplexer, coinSender sender.Sender) (*Exchange, error) {
+func NewDirectExchange(log logrus.FieldLogger, cfg config.BoxExchanger, store Storer, multiplexer *scanner.Multiplexer, coinSender sender.Sender) (*Exchange, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -108,7 +95,6 @@ func NewDirectExchange(log logrus.FieldLogger, cfg config.SkyExchanger, store St
 		log:       log.WithField("prefix", "teller.exchange.exchange"),
 		store:     store,
 		cfg:       cfg,
-		buyMethod: BuyMethodDirect,
 		quit:      make(chan struct{}),
 		done:      make(chan struct{}),
 		Receiver:  receiver,
@@ -199,7 +185,7 @@ type DepositStatusDetail struct {
 	Seq            uint64 `json:"seq"`
 	UpdatedAt      int64  `json:"updated_at"`
 	Status         string `json:"status"`
-	SkyAddress     string `json:"skycoin_address"`
+	KittyID        string `json:"kitty_id"`
 	DepositAddress string `json:"deposit_address"`
 	CoinType       string `json:"coin_type"`
 	Txid           string `json:"txid"`
@@ -237,7 +223,7 @@ func (e *Exchange) GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDet
 			Seq:            di.Seq,
 			UpdatedAt:      di.UpdatedAt,
 			Status:         di.Status.String(),
-			SkyAddress:     di.SkyAddress,
+			KittyID:        di.KittyID,
 			DepositAddress: di.DepositAddress,
 			Txid:           di.Txid,
 			CoinType:       di.CoinType,
@@ -247,21 +233,22 @@ func (e *Exchange) GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDet
 }
 
 // GetBindNum returns the number of btc/eth address the given sky address binded
-func (e *Exchange) GetBindNum(skyAddr string) (int, error) {
-	addrs, err := e.store.GetSkyBindAddresses(skyAddr)
-	return len(addrs), err
+func (e *Exchange) IsBound(kittyID string) bool {
+	//@TODO: improve this
+	addr, _ := e.store.GetKittyBindAddress(kittyID)
+	return addr != nil
 }
 
 // GetDepositStats returns deposit status
 func (e *Exchange) GetDepositStats() (*DepositStats, error) {
-	tbr, tss, err := e.store.GetDepositStats()
+	tbr, tsr, err := e.store.GetDepositStats()
 	if err != nil {
 		return nil, err
 	}
 
 	return &DepositStats{
 		TotalBTCReceived: tbr,
-		TotalSKYSent:     tss,
+		TotalSKYReceived: tsr,
 	}, nil
 }
 
@@ -275,10 +262,9 @@ func (e *Exchange) Status() error {
 	return e.Sender.Status()
 }
 
-// BindAddress binds deposit address with skycoin address, and
-// add the btc/eth address to scan service, when detect deposit coin
-// to the btc/eth address, will send specific skycoin to the binded
-// skycoin address
-func (e *Exchange) BindAddress(skyAddr, depositAddr, coinType string) (*BoundAddress, error) {
-	return e.Receiver.BindAddress(skyAddr, depositAddr, coinType, e.buyMethod)
+// BindAddress binds deposit address with kitty id of a box, and
+// add the btc/sky address to scan service, when a deposit is detected
+// to the btc/sky address, will send specific kitty box to the user who owns the box
+func (e *Exchange) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error) {
+	return e.Receiver.BindAddress(kittyID, depositAddr, coinType)
 }

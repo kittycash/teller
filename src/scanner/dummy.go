@@ -11,7 +11,7 @@ import (
 
 	"github.com/skycoin/skycoin/src/cipher"
 
-	"github.com/skycoin/teller/src/util/httputil"
+	"github.com/kittycash/teller/src/util/httputil"
 )
 
 // DummyScanner implements the Scanner interface to provide simulated scanning

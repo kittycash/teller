@@ -13,9 +13,9 @@ import (
 
 	"github.com/skycoin/skycoin/src/api/cli"
 
-	"github.com/skycoin/teller/src/exchange"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 type fakeExchanger struct {

@@ -6,15 +6,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/scanner"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/scanner"
 )
 
 func init() {
 	// Assert that getRate() handles all coin types
-	cfg := config.SkyExchanger{
-		SkyBtcExchangeRate: "1",
-		SkyEthExchangeRate: "2",
+	cfg := config.BoxExchanger{
+		BoxBtcExchangeRate: "1",
+		BoxSkyExchangeRate: "2",
 	}
 	for _, ct := range scanner.GetCoinTypes() {
 		rate, err := getRate(cfg, ct)
@@ -30,7 +30,7 @@ func init() {
 // Receiver is a component that reads deposits from a scanner.Scanner and records them
 type Receiver interface {
 	Deposits() <-chan DepositInfo
-	BindAddress(skyAddr, depositAddr, coinType, buyMethod string) (*BoundAddress, error)
+	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
 }
 
 // ReceiveRunner is a Receiver than can be run
@@ -43,7 +43,7 @@ type ReceiveRunner interface {
 // with the configured rate recorded at instantiation time [TODO: move that functionality to Processor?]
 type Receive struct {
 	log         logrus.FieldLogger
-	cfg         config.SkyExchanger
+	cfg         config.BoxExchanger
 	multiplexer *scanner.Multiplexer
 	store       Storer
 	deposits    chan DepositInfo
@@ -52,7 +52,7 @@ type Receive struct {
 }
 
 // NewReceive creates a Receive
-func NewReceive(log logrus.FieldLogger, cfg config.SkyExchanger, store Storer, multiplexer *scanner.Multiplexer) (*Receive, error) {
+func NewReceive(log logrus.FieldLogger, cfg config.BoxExchanger, store Storer, multiplexer *scanner.Multiplexer) (*Receive, error) {
 	// TODO -- split up config into relevant parts?
 	// The Receive component needs exchange rates
 	if err := cfg.Validate(); err != nil {
@@ -189,31 +189,26 @@ func (r *Receive) getRate(coinType string) (string, error) {
 }
 
 // getRate returns conversion rate according to coin type
-func getRate(cfg config.SkyExchanger, coinType string) (string, error) {
+func getRate(cfg config.BoxExchanger, coinType string) (string, error) {
 	switch coinType {
 	case scanner.CoinTypeBTC:
-		return cfg.SkyBtcExchangeRate, nil
-	case scanner.CoinTypeETH:
-		return cfg.SkyEthExchangeRate, nil
+		return cfg.BoxBtcExchangeRate, nil
+	case scanner.CoinTypeSKY:
+		return cfg.BoxSkyExchangeRate, nil
 	default:
 		return "", scanner.ErrUnsupportedCoinType
 	}
 }
 
-// BindAddress binds deposit address with skycoin address, and
-// add the btc/eth address to scan service, when detect deposit coin
-// to the btc/eth address, will send specific skycoin to the binded
-// skycoin address
-func (r *Receive) BindAddress(skyAddr, depositAddr, coinType, buyMethod string) (*BoundAddress, error) {
-	if err := ValidateBuyMethod(buyMethod); err != nil {
-		return nil, err
-	}
-
+// BindAddress binds deposit address with kitty id, and
+// add the btc/sky address to scan service, when a deposit is detected
+// to the btc/sky address, will send specific kitty box to the user who owns the box
+func (r *Receive) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error) {
 	if err := r.multiplexer.ValidateCoinType(coinType); err != nil {
 		return nil, err
 	}
 
-	boundAddr, err := r.store.BindAddress(skyAddr, depositAddr, coinType, buyMethod)
+	boundAddr, err := r.store.BindAddress(kittyID, depositAddr, coinType)
 	if err != nil {
 		return nil, err
 	}

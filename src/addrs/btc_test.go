@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 func TestNewBTCAddrsAllValid(t *testing.T) {

@@ -1,4 +1,4 @@
-// Package addrs manages deposit bitcoin addresses
+// Package addrs manages payment deposit addresses
 package addrs
 
 import (
