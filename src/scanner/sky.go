@@ -30,7 +30,7 @@ type SkyClient struct {
 
 func NewSkyClient(addr string) *SkyClient {
 	skyClient := SkyClient{
-		c:&webrpc.Client{Addr: addr},
+		c: &webrpc.Client{Addr: addr},
 	}
 	return &skyClient
 }
@@ -97,7 +97,7 @@ func (sc *SkyClient) GetBlockCount() (int64, error) {
 	lastBlock, err := sc.c.GetLastBlocks(1)
 	if err != nil {
 		logrus.WithError(err).Error("skyClient.GetBlockCount failed")
-		return 0 ,err
+		return 0, err
 	}
 
 	// block seq of last block is the block count
@@ -106,7 +106,7 @@ func (sc *SkyClient) GetBlockCount() (int64, error) {
 }
 
 func (sc *SkyClient) GetBlockVerboseTx(seq uint64) (*visor.ReadableBlock, error) {
-	block, err := sc.c.GetBlocksBySeq([]uint64{ seq })
+	block, err := sc.c.GetBlocksBySeq([]uint64{seq})
 	if err != nil {
 		logrus.WithError(err).Error("skyClient.GetBlockVerboseTx failed")
 		return nil, err
@@ -118,7 +118,6 @@ func (sc *SkyClient) GetBlockVerboseTx(seq uint64) (*visor.ReadableBlock, error)
 func (sc *SkyClient) Shutdown() {
 }
 
-
 // getBlockAtHeight returns that block at a specific height
 func (s *SKYScanner) getBlockAtHeight(height int64) (*CommonBlock, error) {
 	block, err := s.skyClient.GetBlockVerboseTx(uint64(height))
@@ -127,8 +126,6 @@ func (s *SKYScanner) getBlockAtHeight(height int64) (*CommonBlock, error) {
 	}
 	return skyBlock2CommonBlock(block)
 }
-
-
 
 // skyBlock2CommonBlock convert bitcoin block to common block
 func skyBlock2CommonBlock(block *visor.ReadableBlock) (*CommonBlock, error) {
@@ -172,6 +169,31 @@ func (s *SKYScanner) waitForNextBlock(block *CommonBlock) (*CommonBlock, error) 
 	log = log.WithField("blockHeight", block.Height)
 	log.Debug("Waiting for the next block")
 
+	blockCnt, err := s.skyClient.GetBlockCount()
+	if err != nil {
+		log.WithError(err).Error("skyClient.GetBlockCount failed")
+		return nil, err
+	}
+
+	// wait and scan again if we have reached the latest block
+	// till new block is found
+	if blockCnt == block.Height {
+		log.Info("Reached latest block, recanning until new block arrives")
+
+		for {
+			blockCnt, err = s.skyClient.GetBlockCount()
+			if err != nil || block.Height == blockCnt {
+				select {
+				case <-s.Base.GetQuitChan():
+					return nil, errQuit
+				case <-time.After(s.Base.GetScanPeriod()):
+					continue
+				}
+			}
+			break
+		}
+	}
+
 	for {
 		nextBlock, err := s.getNextBlock(block.Height)
 		if err != nil {
@@ -188,7 +210,6 @@ func (s *SKYScanner) waitForNextBlock(block *CommonBlock) (*CommonBlock, error) 
 				continue
 			}
 		}
-
 
 		log.WithFields(logrus.Fields{
 			"hash":   nextBlock.Hash,
