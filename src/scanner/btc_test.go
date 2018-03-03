@@ -374,7 +374,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 			Height:    23505,
 			Tx:        "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
 			N:         1,
-			//Processed: false,
+			Processed: false,
 		},
 		{
 			CoinType:  CoinTypeBTC,
@@ -383,7 +383,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 			Height:    23505,
 			Tx:        "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
 			N:         1,
-			//Processed: false,
+			Processed: false,
 		},
 	}
 
@@ -394,7 +394,7 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 		Height:    23517,
 		Tx:        "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
 		N:         1,
-		//Processed: true,
+		Processed: true,
 	}
 
 	err := scr.Base.GetStorer().(*Store).db.Update(func(tx *bolt.Tx) error {
