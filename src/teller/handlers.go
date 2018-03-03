@@ -84,10 +84,7 @@ func StatusHandler(s *HTTPServer) http.HandlerFunc {
 type ConfigResponse struct {
 	Enabled                  bool   `json:"enabled"`
 	BtcConfirmationsRequired int64  `json:"btc_confirmations_required"`
-	EthConfirmationsRequired int64  `json:"eth_confirmations_required"`
 	MaxBoundAddresses        int    `json:"max_bound_addrs"`
-	SkyBtcExchangeRate       string `json:"sky_btc_exchange_rate"`
-	SkyEthExchangeRate       string `json:"sky_eth_exchange_rate"`
 	MaxDecimals              int    `json:"max_decimals"`
 }
 
@@ -96,54 +93,7 @@ type ConfigResponse struct {
 // URI: /api/config
 func ConfigHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		log := logger.FromContext(ctx)
-
-		if !validMethod(ctx, w, r, []string{http.MethodGet}) {
-			return
-		}
-
-		// Convert the exchange rate to a skycoin balance string
-		rate := s.cfg.BoxExchanger.BoxBtcExchangeRate
-		maxDecimals := s.cfg.BoxExchanger.MaxDecimals
-		dropletsPerBTC, err := exchange.CalculateBtcSkyValue(exchange.SatoshisPerBTC, rate, maxDecimals)
-		if err != nil {
-			log.WithError(err).Error("exchange.CalculateBtcSkyValue failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-
-		skyPerBTC, err := droplet.ToString(dropletsPerBTC)
-		if err != nil {
-			log.WithError(err).Error("droplet.ToString failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-		rate = s.cfg.BoxExchanger.BoxSkyExchangeRate
-		dropletsPerETH, err := exchange.CalculateEthSkyValue(big.NewInt(exchange.WeiPerETH), rate, maxDecimals)
-		if err != nil {
-			log.WithError(err).Error("exchange.CalculateEthSkyValue failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-		skyPerETH, err := droplet.ToString(dropletsPerETH)
-		if err != nil {
-			log.WithError(err).Error("droplet.ToString failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-
-		if err := httputil.JSONResponse(w, ConfigResponse{
-			Enabled:                  s.cfg.Teller.BindEnabled,
-			BtcConfirmationsRequired: s.cfg.BtcScanner.ConfirmationsRequired,
-			EthConfirmationsRequired: s.cfg.EthScanner.ConfirmationsRequired,
-			SkyBtcExchangeRate:       skyPerBTC,
-			SkyEthExchangeRate:       skyPerETH,
-			MaxDecimals:              maxDecimals,
-			MaxBoundAddresses:        s.cfg.Teller.MaxBoundAddresses,
-		}); err != nil {
-			log.WithError(err).Error(err)
-		}
+		//@TODO (therealssj): implement
 	}
 }
 
@@ -180,7 +130,7 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		// Errors that are not RPCErrors are transient and common, such as
 		// exchange.ErrNotConfirmed, which will happen frequently and temporarily.
 		switch err.(type) {
-		case sender.RPCError:
+		case sender.APIError:
 			errorMsg = err.Error()
 		default:
 		}
@@ -263,25 +213,24 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		}(log)
 
 		// check that required parameters are given
-		user := r.FormValue("user")
-		if user == "" {
+		if reserveReq.UserAddress == "" {
 			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing user address"))
 			return
 		}
-		kitty := r.FormValue("kittyId")
-		if kitty == "" {
+
+		if reserveReq.KittyID == "" {
 			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing kitty id"))
 			return
 		}
-		cointype := r.FormValue("cointype")
-		if cointype == "" {
+
+		if reserveReq.CoinType == "" {
 			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing cointype"))
 			return
 		}
 
-		err := s.service.agentManager.DoReservation(reserveReq.UserAddress, reserveReq.KittyID, reserveReq.CoinType)
+		err := s.service.agentManager.MakeReservation(reserveReq.UserAddress, reserveReq.KittyID, reserveReq.CoinType)
 		if err != nil {
-			log.WithError(err).Error("s.agent.DoReservation failed")
+			log.WithError(err).Error("s.agent.MakeReservation failed")
 			switch err {
 			case agent.ErrMaxReservationsExceeded, agent.ErrBoxAlreadyReserved, agent.ErrInvalidCoinType:
 				errorResponse(ctx, w, http.StatusBadRequest, err)
@@ -407,7 +356,7 @@ type ReservationsResponse struct {
 // Accept: application/json
 // URI: /api/reservation/getreservation?status=
 // Args:
-//    status
+//    status: Reservation status, available or reserved
 func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -432,13 +381,59 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 			errorResponse(ctx, w, http.StatusInternalServerError, err)
 		}
 
-		if err := httputil.JSONResponse(w, reservations); err != nil {
-			log.WithError(err).Error(err)
-		}
-
 		if err := httputil.JSONResponse(w, ReservationsResponse{
 			Reservations: reservations,
 			Status: status,
+		}); err != nil {
+			log.WithError(err).Error(err)
+		}
+	}
+}
+
+
+type GetDepositAddressResponse struct {
+	UserAddress string `json:"user_address"`
+	KittyID     string `json:"kitty_id"`
+}
+// GetReservationsHandler gets reservations based on the status
+// Method: GET
+// Accept: application/json
+// URI: /api/reservation/getdepositaddress?useraddr=?&kittyid=?
+// Args:
+//    kittyID: kitty ID of required kitty box
+func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		log := logger.FromContext(ctx)
+
+		// get reservations can only be a get request
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			httputil.ErrResponse(w, http.StatusMethodNotAllowed)
+			return
+		}
+
+		userAddr := r.URL.Query().Get("useraddr")
+		if userAddr == "" {
+			httputil.ErrResponse(w, http.StatusBadRequest)
+			return
+		}
+
+		kittyID := r.URL.Query().Get("kittyid")
+		if kittyID == "" {
+			httputil.ErrResponse(w, http.StatusBadRequest)
+			return
+		}
+
+		addr, err := s.service.agentManager.GetKittyDepositAddress(kittyID)
+		if err != nil {
+			log.WithError(err).Error("s.agent.GetKittyDepositAddress failed")
+			errorResponse(ctx, w, http.StatusInternalServerError, err)
+		}
+
+		if err := httputil.JSONResponse(w, GetDepositAddressResponse{
+			UserAddress: addr,
+			KittyID: kittyID,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}

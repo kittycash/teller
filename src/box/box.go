@@ -1,33 +1,25 @@
 package box
 
-import "sync"
 
+type KittyID uint64
 //@TODO a collections struct?
 //@TODO what other info can kitty box store?
 //@TODO implement this
+
 // Box represents a unique kitty box
 type Box struct {
-	KittyID string
-}
-
-// Kind represents the type of kitty
-// contains the description and can contain other information if required
-// @TODO
-type Kind struct {
-	Description string
-}
-
-// BoxType represents a type of box users can buy
-type BoxType struct {
-	sync.RWMutex
-	// Name of the box collection
-	name string
-	// type of kitty
-	kind Kind
+	KittyID string `json:"kitty_id"`
+	BoxDetail BoxDetail `json:"box_detail"`
+	// Open defines whether the box was opened or not
+	Open      bool  `json:"open"`
 	// Price of box in BTC satoshis
-	priceBTC uint64
+	PriceBTC uint64 `json:"price_btc"`
 	// Price of box in SKY droplets
-	priceSKY uint64
-	// Pool of boxes to sell
-	boxes   []Box
+	PriceSKY uint64 `json:"price_sky"`
+}
+
+
+// BoxDetail gives more info about the content of the box
+type BoxDetail struct {
+	Description string `json:"description"`
 }

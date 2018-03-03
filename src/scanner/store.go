@@ -14,8 +14,6 @@ import (
 const (
 	// CoinTypeBTC is BTC coin type
 	CoinTypeBTC = "BTC"
-	// CoinTypeETH is ETH coin type
-	CoinTypeETH = "ETH"
 	// CoinTypeSKY is SKY coin type
 	CoinTypeSKY = "SKY"
 )
@@ -39,8 +37,6 @@ func GetScanMetaBkt(coinType string) ([]byte, error) {
 	switch coinType {
 	case CoinTypeBTC:
 		suffix = "btc"
-	case CoinTypeETH:
-		suffix = "eth"
 	case CoinTypeSKY:
 		suffix = "sky"
 	default:

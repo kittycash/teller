@@ -16,16 +16,11 @@ import (
 
 const (
 	txConfirmationCheckWait = time.Second * 3
-
-	// BuyMethodDirect is used when buying directly from the local hot wallet
-	BuyMethodDirect = "direct"
-	// BuyMethodPassthrough is used when coins are first bought from an exchange before sending from the local hot wallet
-	BuyMethodPassthrough = "passthrough"
 )
 
 var (
-	// ErrEmptySendAmount is returned if the calculated skycoin amount to send is 0
-	ErrEmptySendAmount = errors.New("Skycoin send amount is 0")
+	// ErrEmptySendAmount is returned if we try to send no kitty
+	ErrEmptySendAmount = errors.New("Sending no kitty")
 	// ErrNoResponse is returned when the send service returns a nil response. This happens if the send service has closed.
 	ErrNoResponse = errors.New("No response from the send service")
 	// ErrNotConfirmed is returned if the tx is not confirmed yet
@@ -70,8 +65,8 @@ type Exchange struct {
 	Sender    SendRunner
 }
 
-// NewDirectExchange creates an Exchange which performs "direct buy", i.e. directly selling from a local skycoin wallet
-func NewDirectExchange(log logrus.FieldLogger, cfg config.BoxExchanger, store Storer, multiplexer *scanner.Multiplexer, coinSender sender.Sender) (*Exchange, error) {
+// NewExchange creates an Exchange which performs handles payments and forwards to sender once the payment is confirmed
+func NewExchange(log logrus.FieldLogger, cfg config.BoxExchanger, store Storer, multiplexer *scanner.Multiplexer, boxSender sender.Sender) (*Exchange, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -81,12 +76,12 @@ func NewDirectExchange(log logrus.FieldLogger, cfg config.BoxExchanger, store St
 		return nil, err
 	}
 
-	processor, err := NewDirectBuy(log, cfg, store, receiver)
+	processor, err := NewBuy(log, cfg, store, receiver)
 	if err != nil {
 		return nil, err
 	}
 
-	sender, err := NewSend(log, cfg, store, coinSender, processor)
+	sender, err := NewSend(log, cfg, store, boxSender, processor)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +187,8 @@ type DepositStatusDetail struct {
 }
 
 // GetDepositStatuses returns deamon.DepositStatus array of given skycoin address
-func (e *Exchange) GetDepositStatuses(skyAddr string) ([]DepositStatus, error) {
-	dis, err := e.store.GetDepositInfoOfSkyAddress(skyAddr)
+func (e *Exchange) GetDepositStatuses(kittyID string) ([]DepositStatus, error) {
+	dis, err := e.store.GetDepositInfoOfKittyID(kittyID)
 	if err != nil {
 		return []DepositStatus{}, err
 	}

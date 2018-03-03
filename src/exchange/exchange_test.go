@@ -160,8 +160,8 @@ func (scan *dummyScanner) stop() {
 }
 
 const (
-	testSkyBtcRate      = "100" // 100 SKY per BTC
-	testSkyEthRate      = "10"  // 10 SKY per ETH
+	testKittyBtcRate      = "100" // 100 SKY per BTC
+	testKittySkyRate      = "10"  // 10 SKY per ETH
 	testMaxDecimals     = 0
 	testSkyAddr         = "2Wbi4wvxC4fkTYMsS2f6HaFfW4pafDjXcQW"
 	testSkyAddr2        = "hs1pyuNgxDLyLaZsnqzQG9U3DKdJsbzNpn"
@@ -174,9 +174,9 @@ const (
 )
 
 var (
-	defaultCfg = config.SkyExchanger{
-		SkyBtcExchangeRate:      testSkyBtcRate,
-		SkyEthExchangeRate:      testSkyEthRate,
+	defaultCfg = config.BoxExchanger{
+		BoxBtcExchangeRate:      testKittyBtcRate,
+		BoxSkyExchangeRate:      testKittySkyRate,
 		TxConfirmationCheckWait: time.Millisecond * 100,
 		Wallet:                  testWalletFile,
 		SendEnabled:             true,
@@ -188,11 +188,11 @@ func newTestExchange(t *testing.T, log *logrus.Logger, db *bolt.DB) *Exchange {
 	require.NoError(t, err)
 
 	bscr := newDummyScanner()
-	escr := newDummyScanner()
+	sscr := newDummyScanner()
 	multiplexer := scanner.NewMultiplexer(log)
 	err = multiplexer.AddScanner(bscr, scanner.CoinTypeBTC)
 	require.NoError(t, err)
-	err = multiplexer.AddScanner(escr, scanner.CoinTypeETH)
+	err = multiplexer.AddScanner(sscr, scanner.CoinTypeSKY)
 	require.NoError(t, err)
 
 	go testutil.CheckError(t, multiplexer.Multiplex)
@@ -225,7 +225,7 @@ func setupExchange(t *testing.T, log *logrus.Logger) (*Exchange, func(), func())
 func closeMultiplexer(e *Exchange) {
 	mp := e.Receiver.(*Receive).multiplexer
 	mp.GetScanner(scanner.CoinTypeBTC).(*dummyScanner).stop()
-	mp.GetScanner(scanner.CoinTypeETH).(*dummyScanner).stop()
+	mp.GetScanner(scanner.CoinTypeSKY).(*dummyScanner).stop()
 	mp.Shutdown()
 }
 
@@ -245,7 +245,7 @@ func runExchangeMockStore(t *testing.T) (*Exchange, func(), *logrus_test.Hook) {
 	multiplexer := scanner.NewMultiplexer(log)
 	err := multiplexer.AddScanner(bscr, scanner.CoinTypeBTC)
 	require.NoError(t, err)
-	err = multiplexer.AddScanner(escr, scanner.CoinTypeETH)
+	err = multiplexer.AddScanner(escr, scanner.CoinTypeSKY)
 	require.NoError(t, err)
 
 	go testutil.CheckError(t, multiplexer.Multiplex)

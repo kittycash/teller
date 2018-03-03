@@ -179,7 +179,7 @@ func run() error {
 	var scanService scanner.Scanner
 	var scanSkyService scanner.Scanner
 	var sendService *sender.SendService
-	var sendRPC sender.Sender
+	var sendAPI sender.Sender
 	var btcAddrMgr *addrs.Addrs
 	var skyAddrMgr  *addrs.Addrs
 
@@ -229,6 +229,7 @@ func run() error {
 
 			if err := multiplexer.AddScanner(scanSkyService, scanner.CoinTypeSKY); err != nil {
 				log.WithError(err).Errorf("multiplexer.AddScanner of %s failed", scanner.CoinTypeSKY)
+				return err
 			}
 		}
 	}
@@ -241,22 +242,21 @@ func run() error {
 	background("multiplex.Run", errC, multiplexer.Multiplex)
 
 	if cfg.Dummy.Sender {
-		log.Info("skyd disabled, running dummy sender")
-		sendRPC = sender.NewDummySender(log)
-		sendRPC.(*sender.DummySender).BindHandlers(dummyMux)
+		log.Info("kittyd disabled, running dummy sender")
+		sendAPI = sender.NewDummySender(log)
+		sendAPI.(*sender.DummySender).BindHandlers(dummyMux)
 	} else {
-		// @TODO needs to be replaced with sending kitty boxes
-		skyClient, err := sender.NewRPC(cfg.BoxExchanger.Wallet, cfg.SkyRPC.Address)
+		kittyClient, err := sender.NewAPI(cfg.BoxExchanger.Wallet, cfg.BoxExchanger.WalletPassword, cfg.KittyClientAddr)
 		if err != nil {
-			log.WithError(err).Error("sender.NewRPC failed")
+			log.WithError(err).Error("sender.NewAPI failed")
 			return err
 		}
 
-		sendService = sender.NewService(log, skyClient)
+		sendService = sender.NewService(log, kittyClient)
 
 		background("sendService.Run", errC, sendService.Run)
 
-		sendRPC = sender.NewRetrySender(sendService)
+		sendAPI = sender.NewRetrySender(sendService)
 	}
 
 	if cfg.Dummy.Scanner || cfg.Dummy.Sender {
@@ -276,7 +276,7 @@ func run() error {
 		return err
 	}
 
-	exchangeClient, err := exchange.NewDirectExchange(log, cfg.BoxExchanger, exchangeStore, multiplexer, sendRPC)
+	exchangeClient, err := exchange.NewExchange(log, cfg.BoxExchanger, exchangeStore, multiplexer, sendAPI)
 	if err != nil {
 		log.WithError(err).Error("exchange.NewDirectExchange failed")
 		return err

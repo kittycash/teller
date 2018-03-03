@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/skycoin/skycoin/src/visor"
-	"github.com/skycoin/skycoin/src/wallet"
 
 	"github.com/kittycash/teller/src/util/mathutil"
+	"github.com/kittycash/wallet/src/wallet"
 )
 
 // Config represents the configuration root
@@ -40,10 +40,10 @@ type Config struct {
 
 	SkyRPC SkyRPC `mapstructure:"sky_rpc"`
 	BtcRPC BtcRPC `mapstructure:"btc_rpc"`
-	EthRPC EthRPC `mapstructure:"eth_rpc"`
+
+	KittyClientAddr string `mapstructure:"kitty_client_addr"`
 
 	BtcScanner   BtcScanner   `mapstructure:"btc_scanner"`
-	EthScanner   EthScanner   `mapstructure:"eth_scanner"`
 	SkyScanner   SkyScanner   `mapstructure:"sky_scanner"`
 	BoxExchanger BoxExchanger `mapstructure:"box_exchanger"`
 
@@ -77,23 +77,8 @@ type BtcRPC struct {
 	Enabled bool   `mapstructure:"enabled"`
 }
 
-// EthRPC config for ethrpc
-type EthRPC struct {
-	Server  string `mapstructure:"server"`
-	Port    string `mapstructure:"port"`
-	Enabled bool   `mapstructure:"enabled"`
-}
-
 // BtcScanner config for BTC scanner
 type BtcScanner struct {
-	// How often to try to scan for blocks
-	ScanPeriod            time.Duration `mapstructure:"scan_period"`
-	InitialScanHeight     int64         `mapstructure:"initial_scan_height"`
-	ConfirmationsRequired int64         `mapstructure:"confirmations_required"`
-}
-
-// EthScanner config for ETH scanner
-type EthScanner struct {
 	// How often to try to scan for blocks
 	ScanPeriod            time.Duration `mapstructure:"scan_period"`
 	InitialScanHeight     int64         `mapstructure:"initial_scan_height"`
@@ -116,6 +101,8 @@ type BoxExchanger struct {
 	MaxDecimals int `mapstructure:"max_decimals"`
 	// Path of hot kitty wallet file on disk
 	Wallet string `mapstructure:"wallet"`
+	// Password of kitty wallet
+	WalletPassword string `mapstructure:"wallet_password"`
 	// How long to wait before rechecking transaction confirmations
 	TxConfirmationCheckWait time.Duration `mapstructure:"tx_confirmation_check_wait"`
 	// Allow sending of boxes (deposits will still be received and recorded)
@@ -158,27 +145,30 @@ func (c BoxExchanger) validate() []error {
 	return errs
 }
 
-//
-//func (c BoxExchanger) validateWallet() []error {
-//	var errs []error
-//
-//	if c.Wallet == "" {
-//		errs = append(errs, errors.New("sky_exchanger.wallet missing"))
-//	}
-//
-//	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
-//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s does not exist", c.Wallet))
-//	}
-//
-//	w, err := wallet.Load(c.Wallet)
-//	if err != nil {
-//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
-//	} else if err := w.Validate(); err != nil {
-//		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s is invalid: %v", c.Wallet, err))
-//	}
-//
-//	return errs
-//}
+
+func (c BoxExchanger) validateWallet() []error {
+	var errs []error
+
+	if c.Wallet == "" {
+		errs = append(errs, errors.New("box_exchanger.wallet missing"))
+	}
+
+	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("box_exchanger.wallet file %s does not exist", c.Wallet))
+	}
+
+	f, err := os.Open(wallet.LabelPath(c.Wallet))
+	if err != nil {
+		errs = append(errs, err)
+		return errs
+	}
+
+	_, err = wallet.LoadFloatingWallet(f, c.Wallet, c.WalletPassword)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("box_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
+	}
+	return errs
+}
 
 // Web config for the teller HTTP interface
 type Web struct {
@@ -299,14 +289,6 @@ func (c Config) Validate() error {
 				oops("btc_rpc.cert file does not exist")
 			}
 		}
-		if c.EthRPC.Enabled {
-			if c.EthRPC.Server == "" {
-				oops("eth_rpc.server missing")
-			}
-			if c.EthRPC.Port == "" {
-				oops("eth_rpc.port missing")
-			}
-		}
 	}
 
 	if c.BtcScanner.ConfirmationsRequired < 0 {
@@ -315,20 +297,14 @@ func (c Config) Validate() error {
 	if c.BtcScanner.InitialScanHeight < 0 {
 		oops("btc_scanner.initial_scan_height must be >= 0")
 	}
-	if c.EthScanner.ConfirmationsRequired < 0 {
-		oops("eth_scanner.confirmations_required must be >= 0")
-	}
-	if c.EthScanner.InitialScanHeight < 0 {
-		oops("eth_scanner.initial_scan_height must be >= 0")
-	}
 
-	exchangeErrs := c.SkyExchanger.validate()
+	exchangeErrs := c.BoxExchanger.validate()
 	for _, err := range exchangeErrs {
 		oops(err.Error())
 	}
 
 	if !c.Dummy.Sender {
-		exchangeErrs := c.SkyExchanger.validateWallet()
+		exchangeErrs := c.BoxExchanger.validateWallet()
 		for _, err := range exchangeErrs {
 			oops(err.Error())
 		}
