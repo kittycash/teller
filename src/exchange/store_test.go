@@ -27,8 +27,8 @@ func (m *MockStore) GetBindAddress(btcAddr, coinType string) (*BoundAddress, err
 	return ba.(*BoundAddress), args.Error(1)
 }
 
-func (m *MockStore) BindAddress(skyAddr, btcAddr, coinType, buyMethod string) (*BoundAddress, error) {
-	args := m.Called(skyAddr, btcAddr, coinType, buyMethod)
+func (m *MockStore) BindAddress(kittyID, btcAddr, coinType string) (*BoundAddress, error) {
+	args := m.Called(kittyID, btcAddr, coinType)
 
 	ba := args.Get(0)
 	if ba == nil {
@@ -54,8 +54,8 @@ func (m *MockStore) GetDepositInfoArray(filt DepositFilter) ([]DepositInfo, erro
 	return dis.([]DepositInfo), args.Error(1)
 }
 
-func (m *MockStore) GetDepositInfoOfSkyAddress(skyAddr string) ([]DepositInfo, error) {
-	args := m.Called(skyAddr)
+func (m *MockStore) GetDepositInfoOfKittyID(kittyID string) ([]DepositInfo, error) {
+	args := m.Called(kittyID)
 
 	dis := args.Get(0)
 	if dis == nil {
@@ -75,8 +75,8 @@ func (m *MockStore) UpdateDepositInfoCallback(btcTx string, f func(DepositInfo) 
 	return args.Get(0).(DepositInfo), args.Error(1)
 }
 
-func (m *MockStore) GetSkyBindAddresses(skyAddr string) ([]BoundAddress, error) {
-	args := m.Called(skyAddr)
+func (m *MockStore) GetKittyBindAddress(kittyID string) ([]BoundAddress, error) {
+	args := m.Called(kittyID)
 
 	btcAddrs := args.Get(0)
 	if btcAddrs == nil {
@@ -107,12 +107,11 @@ func TestStoreNewStore(t *testing.T) {
 
 	// check the buckets
 	err := s.db.View(func(tx *bolt.Tx) error {
-		require.NotNil(t, tx.Bucket(ExchangeMetaBkt))
 		require.NotNil(t, tx.Bucket(DepositInfoBkt))
 		require.NotNil(t, tx.Bucket(MustGetBindAddressBkt(scanner.CoinTypeBTC)))
-		require.NotNil(t, tx.Bucket(MustGetBindAddressBkt(scanner.CoinTypeETH)))
-		require.NotNil(t, tx.Bucket(SkyDepositSeqsIndexBkt))
-		require.NotNil(t, tx.Bucket(BtcTxsBkt))
+		require.NotNil(t, tx.Bucket(MustGetBindAddressBkt(scanner.CoinTypeSKY)))
+ 		//@TODO (therealssj): Update buckets
+ 		require.NotNil(t, tx.Bucket(BtcTxsBkt))
 		return nil
 	})
 	require.NoError(t, err)
@@ -124,12 +123,10 @@ func TestStoreAddDepositInfo(t *testing.T) {
 
 	di, err := s.addDepositInfo(DepositInfo{
 		DepositID:      "btx1:2",
-		SkyAddress:     "skyaddr1",
+		KittyID:     "skyaddr1",
 		DepositAddress: "btcaddr1",
 		DepositValue:   1e6,
-		ConversionRate: testSkyBtcRate,
 		Status:         StatusWaitSend,
-		BuyMethod:      BuyMethodDirect,
 	})
 	require.NoError(t, err)
 	require.Equal(t, di.Seq, uint64(1))
@@ -161,12 +158,10 @@ func TestStoreAddDepositInfo(t *testing.T) {
 
 	_, err = s.addDepositInfo(DepositInfo{
 		DepositID:      "btx2:2",
-		SkyAddress:     "skyaddr1",
+		KittyID:     "skyaddr1",
 		DepositAddress: "btcaddr2",
 		DepositValue:   1e6,
-		ConversionRate: testSkyBtcRate,
 		Status:         StatusWaitSend,
-		BuyMethod:      BuyMethodDirect,
 	})
 	require.NoError(t, err)
 
@@ -190,16 +185,17 @@ func TestStoreAddDepositInfo(t *testing.T) {
 }
 
 func mustBindAddress(t *testing.T, s Storer, skyAddr, addr string) {
-	boundAddr, err := s.BindAddress(skyAddr, addr, scanner.CoinTypeBTC, BuyMethodDirect)
+	boundAddr, err := s.BindAddress(skyAddr, addr, scanner.CoinTypeBTC)
 	require.NoError(t, err)
 	require.NotNil(t, boundAddr)
-	require.Equal(t, skyAddr, boundAddr.SkyAddress)
+	require.Equal(t, skyAddr, boundAddr.KittyID)
 	require.Equal(t, addr, boundAddr.Address)
 	require.Equal(t, scanner.CoinTypeBTC, boundAddr.CoinType)
-	require.Equal(t, BuyMethodDirect, boundAddr.BuyMethod)
+	//@TODO (therealssj): update test
 }
 
 func TestStoreBindAddress(t *testing.T) {
+	//@TODO (therealssj): update test
 	s, shutdown := newTestStore(t)
 	defer shutdown()
 
@@ -212,20 +208,18 @@ func TestStoreBindAddress(t *testing.T) {
 		err := dbutil.GetBucketObject(tx, bktName, "ba1", &ba)
 		require.NoError(t, err)
 		require.Equal(t, BoundAddress{
-			SkyAddress: "sa1",
+			KittyID: "sa1",
 			Address:    "ba1",
 			CoinType:   scanner.CoinTypeBTC,
-			BuyMethod:  BuyMethodDirect,
 		}, ba)
 
 		var addrs []BoundAddress
 		err = dbutil.GetBucketObject(tx, SkyDepositSeqsIndexBkt, "sa1", &addrs)
 		require.NoError(t, err)
 		require.Equal(t, BoundAddress{
-			SkyAddress: "sa1",
+			KittyID: "sa1",
 			Address:    "ba1",
 			CoinType:   scanner.CoinTypeBTC,
-			BuyMethod:  BuyMethodDirect,
 		}, addrs[0])
 
 		return nil
@@ -242,12 +236,12 @@ func TestStoreBindAddressTwiceFails(t *testing.T) {
 
 	mustBindAddress(t, s, "a", "b")
 
-	boundAddr, err := s.BindAddress("a", "b", scanner.CoinTypeBTC, BuyMethodDirect)
+	boundAddr, err := s.BindAddress("a", "b", scanner.CoinTypeBTC)
 	require.Error(t, err)
 	require.Equal(t, ErrAddressAlreadyBound, err)
 	require.Nil(t, boundAddr)
 
-	boundAddr, err = s.BindAddress("c", "b", scanner.CoinTypeBTC, BuyMethodDirect)
+	boundAddr, err = s.BindAddress("c", "b", scanner.CoinTypeBTC)
 	require.Error(t, err)
 	require.Equal(t, ErrAddressAlreadyBound, err)
 	require.Nil(t, boundAddr)
@@ -306,10 +300,9 @@ func TestStoreGetBindAddress(t *testing.T) {
 			if tc.ok {
 				require.NotNil(t, addr)
 				require.Equal(t, BoundAddress{
-					SkyAddress: tc.expectSkyAddr,
+					KittyID: tc.expectSkyAddr,
 					Address:    tc.btcAddr,
 					CoinType:   scanner.CoinTypeBTC,
-					BuyMethod:  BuyMethodDirect,
 				}, *addr)
 			} else {
 				require.Nil(t, addr)
@@ -325,10 +318,9 @@ func TestStoreGetDepositInfo(t *testing.T) {
 	_, err := s.addDepositInfo(DepositInfo{
 		DepositID:      "btx1:1",
 		DepositAddress: "btcaddr1",
-		SkyAddress:     "skyaddr1",
+		KittyID:     "skyaddr1",
 		DepositValue:   1e6,
 		Txid:           "txid-1",
-		ConversionRate: testSkyBtcRate,
 		SkySent:        100e8,
 		Status:         StatusDone,
 		BuyMethod:      BuyMethodDirect,
@@ -338,7 +330,7 @@ func TestStoreGetDepositInfo(t *testing.T) {
 	dpi, err := s.getDepositInfo("btx1:1")
 	require.NoError(t, err)
 	require.Equal(t, "btcaddr1", dpi.DepositAddress)
-	require.Equal(t, "skyaddr1", dpi.SkyAddress)
+	require.Equal(t, "skyaddr1", dpi.KittyID)
 	require.Equal(t, StatusDone, dpi.Status)
 	require.NotEmpty(t, dpi.UpdatedAt)
 }
@@ -349,7 +341,7 @@ func TestStoreUpdateDepositInfo(t *testing.T) {
 
 	_, err := s.addDepositInfo(DepositInfo{
 		DepositID:      "btx1:1",
-		SkyAddress:     "skyaddr1",
+		KittyID:     "skyaddr1",
 		DepositAddress: "btcaddr1",
 		DepositValue:   1e6,
 		ConversionRate: testSkyBtcRate,

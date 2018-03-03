@@ -54,6 +54,30 @@ func testNewEthAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addr
 	return etha, addresses
 }
 
+func testNewSkyAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addrs, []string) {
+	addresses := []string{
+		"2Ag9SGMnVyaxzQbGL1EUfau2Fx1ztfNZsWt",
+		"27XiEvCCEhB922y1r6JzYUN4AQA6XE6KnvL",
+		"yW21jHJDWUtN8e5RwNtEgmQxVK14LCf4jS",
+	}
+
+	skya, err := NewAddrs(log, db, addresses, "test_bucket_sky")
+	require.NoError(t, err)
+
+
+	addrMap := make(map[string]struct{}, len(skya.addresses))
+	for _, a := range skya.addresses {
+		addrMap[a] = struct{}{}
+	}
+
+	for _, addr := range addresses {
+		_, ok := addrMap[addr]
+		require.True(t, ok)
+	}
+
+	return skya, addresses
+}
+
 func TestNewBtcAddrs(t *testing.T) {
 	db, shutdown := testutil.PrepareDB(t)
 	defer shutdown()
@@ -117,34 +141,33 @@ func TestNewAddress(t *testing.T) {
 	require.Equal(t, ErrDepositAddressEmpty, err)
 }
 
-func TestNewEthAddrs(t *testing.T) {
+func TestNewSkyAddrs(t *testing.T) {
 	db, shutdown := testutil.PrepareDB(t)
 	defer shutdown()
 	log, _ := testutil.NewLogger(t)
-	testNewEthAddrManager(t, db, log)
+	testNewSkyAddrManager(t, db, log)
 }
 
-func TestNewEthAddress(t *testing.T) {
+func TestNewSkyAddress(t *testing.T) {
 	db, shutdown := testutil.PrepareDB(t)
 	defer shutdown()
 
 	addresses := []string{
-		"0xc0a51efd9c319dd60d93105ab317eb362017ecb9",
-		"0x3f9f942b8bd4f69432c053eef77cd84fd46b8d76",
-		"0x5405f65a71342609249bb347505a4029c85ee88b",
-		"0x01db29b6d512902aa82571267609f14187aa8aa8",
-		"0x01db29b6d512902aa82571267609f14187aa8aa8",
+		"2Ag9SGMnVyaxzQbGL1EUfau2Fx1ztfNZsWt",
+		"27XiEvCCEhB922y1r6JzYUN4AQA6XE6KnvL",
+		"yW21jHJDWUtN8e5RwNtEgmQxVK14LCf4jS",
+		"yW21jHJDWUtN8e5RwNtEgmQxVK14LCf4jS",
 	}
 
 	log, _ := testutil.NewLogger(t)
-	etha, err := NewAddrs(log, db, addresses, "test_bucket_eth")
+	skya, err := NewAddrs(log, db, addresses, "test_bucket_sky")
 	require.NoError(t, err)
 
-	addr, err := etha.NewAddress()
+	addr, err := skya.NewAddress()
 	require.NoError(t, err)
 
 	addrMap := make(map[string]struct{})
-	for _, a := range etha.addresses {
+	for _, a := range skya.addresses {
 		addrMap[a] = struct{}{}
 	}
 
@@ -153,29 +176,29 @@ func TestNewEthAddress(t *testing.T) {
 	require.False(t, ok)
 
 	// check if the addr is in used storage
-	used, err := etha.used.IsUsed(addr)
+	used, err := skya.used.IsUsed(addr)
 	require.NoError(t, err)
 	require.True(t, used)
 
 	log, _ = testutil.NewLogger(t)
-	etha1, err := NewAddrs(log, db, addresses, "test_bucket_eth")
+	skya1, err := NewAddrs(log, db, addresses, "test_bucket_skya")
 	require.NoError(t, err)
 
-	for _, a := range etha1.addresses {
+	for _, a := range skya1.addresses {
 		require.NotEqual(t, a, addr)
 	}
 
-	used, err = etha1.used.IsUsed(addr)
+	used, err = skya1.used.IsUsed(addr)
 	require.NoError(t, err)
 	require.True(t, used)
 
 	// run out all addresses
 	for i := 0; i < 3; i++ {
-		_, err = etha1.NewAddress()
+		_, err = skya1.NewAddress()
 		require.NoError(t, err)
 	}
 
-	_, err = etha1.NewAddress()
+	_, err = skya1.NewAddress()
 	require.Error(t, err)
 	require.Equal(t, ErrDepositAddressEmpty, err)
 }

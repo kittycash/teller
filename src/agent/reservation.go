@@ -4,24 +4,25 @@ import (
 	"github.com/kittycash/teller/src/box"
 	"time"
 	"github.com/go-errors/errors"
+	"sync"
 )
 
 // @TODO handle reservation expiry
-// @TODO prevent reservation by two people at the same time
 
 var (
 	ErrMaxReservationsExceeded = errors.New("User has exceeded the max number of reservations")
-	ErrBoxAlreadyReserved = errors.New("Box already reserved")
-	ErrInvalidCoinType = errors.New("Invalid coin type")
-	ErrReservationNotFound = errors.New("Reservation not found")
-	ErrInvalidReservationType = errors.New("Invalid reservation type")
+	ErrBoxAlreadyReserved      = errors.New("Box already reserved")
+	ErrInvalidCoinType         = errors.New("Invalid coin type")
+	ErrReservationNotFound     = errors.New("Reservation not found")
+	ErrInvalidReservationType  = errors.New("Invalid reservation type")
+	ErrDepositAddressNotFound  = errors.New("Deposit Address not found")
 )
 
 const (
 	// Available reservation
-	Available  = "available"
+	Available = "available"
 	// Reserved reservation
-	Reserved  = "reserved"
+	Reserved = "reserved"
 )
 
 // Reservation is a reservation instance for a kitty box
@@ -38,8 +39,14 @@ type Reservation struct {
 	Expire time.Time
 }
 
+// Reservation keeps track of reservations in the iko
+type ReservationManager struct {
+	sync.RWMutex
+	Reservations map[string]*Reservation
+}
+
 // MakeReserved marks a reservation as reserved
-func (r *Reservation) MakeReserved()  {
+func (r *Reservation) MakeReserved() {
 	r.Status = Reserved
 }
 
@@ -48,33 +55,66 @@ func (r *Reservation) MakeAvailable() {
 	r.Status = Available
 }
 
+func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservation, error) {
+	rm.RLock()
+	defer rm.RUnlock()
 
-// DoReservation reserves a kitty box
+	// check if the reservation exists
+	if  _, ok := rm.Reservations[kittyID]; !ok {
+		return nil, ErrReservationNotFound
+	}
+
+	return rm.Reservations[kittyID], nil
+}
+
+func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservation {
+	rm.RLock()
+	defer rm.RUnlock()
+	var reservations []Reservation
+
+	for _, r := range rm.Reservations {
+		if r.Status == status {
+			reservations = append(reservations, r)
+		}
+	}
+
+	return reservations
+}
+
+func (rm *ReservationManager) GetReservations() []Reservation {
+	rm.RLock()
+	defer rm.RUnlock()
+
+	var reservations []Reservation
+	for _, r := range rm.Reservations {
+		reservations = append(reservations, r)
+	}
+
+	return reservations
+}
+
+func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status string) {
+	rm.Lock()
+	defer rm.Unlock()
+	rm.Reservations[kittyID].Status = status
+}
+
+
+// MakeReservation reserves a kitty box
 // Args:
 // userAddress: Address of the user reserving the box
 // kittyID: ID of kitty in the reservation box
 // cointype: payment cointype
-func (a *Agent) DoReservation(user string, kittyID string, cointype string) error {
-	// Create a user instance and check whether he can reserve boxes
-	u, err := a.store.GetUser(user)
+func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string) error {
+	// get the reservation for the reservation map
+	reservation, err := a.ReservationManager.GetReservationByKittyID(kittyID)
 	if err != nil {
-		a.log.WithError(err).Error("store.GetUser failed")
-		return err
-	}
-
-	if !u.CanReserve() {
-		return ErrMaxReservationsExceeded
-	}
-
-	// fetch the kitty reservation
-	kr, err := a.store.GetReservationFromKittyID(kittyID)
-	if err != nil {
-		a.log.WithError(err).Error("store.GetReservationFromKittyID failed")
+		a.log.WithError(err).Error("ReservationManager.GetReservation failed")
 		return err
 	}
 
 	// check whether the kitty is available or not
-	switch kr.Status {
+	switch reservation.Status {
 	case Reserved:
 		return ErrBoxAlreadyReserved
 	case Available:
@@ -82,21 +122,23 @@ func (a *Agent) DoReservation(user string, kittyID string, cointype string) erro
 		switch cointype {
 		case "SKY":
 		case "BTC":
-			kr.CoinType = cointype
+			reservation.CoinType = cointype
 		default:
 			return ErrInvalidCoinType
 		}
 	}
 
-	u.AddReservation(kr)
-	// update the reservation
-	a.store.UpdateReservation(kr.Box.KittyID, kr)
-	// update the user
-	a.store.UpdateUser(u)
+	// set the reservation as reserved
+	a.ReservationManager.ChangeReservationStatus(kittyID, Reserved)
+
+	err = a.UserManager.AddReservation(userAddr, reservation)
+	if err != nil {
+		a.log.WithError(err).Error("UserManager.AddReservation failed")
+		return err
+	}
 
 	return nil
 }
-
 
 // CancelReservation cancels a kitty reservation
 // Args:
@@ -122,6 +164,7 @@ func (a *Agent) CancelReservation(kittyID string) error {
 			reservation = &reservations[i]
 			// make the reservation available
 			reservation.MakeAvailable()
+			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
 			// update the reservation
 			if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
 				a.log.WithError(err).Error("CancelReservation failed for %s", reservation.Box.KittyID)
@@ -134,6 +177,7 @@ func (a *Agent) CancelReservation(kittyID string) error {
 			// update user reservations
 			user.Reservations = reservations
 			a.store.UpdateUser(user)
+
 		}
 	}
 
@@ -146,12 +190,31 @@ func (a *Agent) CancelReservation(kittyID string) error {
 
 // GetReservations gets reversation based on the reservation status
 // Args:
-// status: Reservation status, availabled or reserved
+// status: Reservation status, available, reserved or all.
 func (a *Agent) GetReservations(status string) ([]Reservation, error) {
 	switch status {
 	case Available, Reserved:
-		return a.store.GetReservations(status)
+		return a.ReservationManager.GetReservationsByStatus(status), nil
+	case "all":
+		return a.ReservationManager.GetReservations(), nil
 	default:
 		return nil, ErrInvalidReservationType
 	}
+}
+
+// GetKittyDepositAddress gets deposit address of kitty box reservation
+// Args:
+// kittyID: ID of kitty inside the box
+func (a *Agent) GetKittyDepositAddress(kittyID string) (string, error) {
+	reservation, err := a.store.GetReservationFromKittyID(kittyID)
+	if err != nil {
+		a.log.WithError(err).Error("GetKittyDepositAddress failed for %v", kittyID)
+		return "", err
+	}
+
+	if reservation.DepositAddress == "" {
+		return "", ErrDepositAddressNotFound
+	}
+
+	return reservation.DepositAddress, nil
 }

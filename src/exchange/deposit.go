@@ -74,6 +74,7 @@ type DepositInfo struct {
 	CoinType       string
 	KittyID        string
 	DepositAddress string
+	OwnerAddress   string
 	DepositID      string
 	Txid           string
 	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC)

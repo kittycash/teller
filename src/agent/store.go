@@ -30,9 +30,6 @@ type Storer interface {
 	GetReservationUserFromKittyID(kittyID string) (*User, error)
 	GetUser(userAddr string) (*User, error)
 	GetUserReservations(userAddr string) ([]Reservation, error)
-	//@TODO need more info for this
-	GetUserKitties(userAddr string) ([]box.Box, error)
-	//@TODO add update commands
 	UpdateUser(user *User) error
 	UpdateReservation(kittyID string, reservation *Reservation) error
 }
@@ -166,11 +163,6 @@ func (s *Store) GetUserReservations(userAddr string) ([]Reservation, error) {
 	}
 
 	return user.Reservations, nil
-}
-
-// @TODO
-func (s *Store) GetUserKitties(userAddr string) ([]box.Box, error) {
-	return nil, nil
 }
 
 // Update user updates user info

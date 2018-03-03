@@ -457,7 +457,7 @@ func (s *Store) UpdateDepositInfoCallback(btcTx string, update func(DepositInfo)
 	return dpi, nil
 }
 
-// GetSkyBindAddresses returns the current bound address for a given kitty ID
+// GetKittyBindAddress returns the current bound address for a given kitty ID
 func (s *Store) GetKittyBindAddress(kittyID string) (*BoundAddress, error) {
 	// @TODO: improve this
 	var boundAddr BoundAddress

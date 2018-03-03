@@ -221,12 +221,12 @@ func (s *Send) processWaitSendDeposit(di DepositInfo) error {
 		s.setStatus(err)
 
 		switch err.(type) {
-		case sender.RPCError:
-			// Treat skycoin RPC/CLI errors as temporary.
-			// Some RPC/CLI errors are hypothetically permanent,
+		case sender.APIError:
+			// Treat kitty client errors as temporary.
+			// Some API errors are hypothetically permanent,
 			// but most likely it is an insufficient wallet balance or
-			// the skycoin node is unavailable.
-			// A permanent error suggests a bug in skycoin or teller so can be fixed.
+			// the kitty node is unavailable.
+			// A permanent error suggests a bug in kittycash or teller so can be fixed.
 			log.WithError(err).Error("handleDepositInfoState failed")
 			select {
 			case <-time.After(s.cfg.TxConfirmationCheckWait):
@@ -266,7 +266,7 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 	switch di.Status {
 	case StatusWaitSend:
 		// Prepare skycoin transaction
-		skyTx, err := s.createTransaction(di)
+		kittyTx, err := s.createTransaction(di)
 
 		if err != nil {
 			log.WithError(err).Error("createTransaction failed")
@@ -296,10 +296,10 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 		// The skyTx contains one output sent to the destination address,
 		// so this check is safe.
 		// It is verified earlier by verifyCreatedTransaction
-		var skySent uint64
-		for _, o := range skyTx.Out {
-			if o.Address.String() == di.SkyAddress {
-				skySent = o.Coins
+		var kittySent uint64
+		for _, o := range kittyTx.Out {
+			if o.Address.String() == di.OwnerAddress {
+				kittySent = o.Coins
 				break
 			}
 		}
@@ -529,8 +529,8 @@ func (s *Send) broadcastTransaction(tx *coin.Transaction) (*sender.BroadcastTxRe
 	return rsp, nil
 }
 
-// Balance returns the number of coins left in the OTC wallet
-func (s *Send) Balance() (*cli.Balance, error) {
+// Balance is broken right now
+func (s *Send) Balance() int {
 	return s.sender.Balance()
 }
 

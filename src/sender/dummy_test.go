@@ -1,4 +1,5 @@
 package sender
+//@TODO (therealssj): adjust this for kittycash
 
 import (
 	"testing"
