@@ -1,21 +1,21 @@
 package scanner
 
 import (
-	"testing"
-	"github.com/boltdb/bolt"
-	"github.com/stretchr/testify/require"
-	"github.com/kittycash/teller/src/util/testutil"
-	"time"
-	"github.com/skycoin/skycoin/src/visor"
-	"github.com/kittycash/teller/src/util/dbutil"
 	"errors"
+	"testing"
+	"time"
+
+	"github.com/boltdb/bolt"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/testutil"
+	"github.com/skycoin/skycoin/src/visor"
 	"github.com/skycoin/skycoin/src/visor/blockdb"
+	"github.com/stretchr/testify/require"
+	"fmt"
 )
 
-//@TODO add more tests
-
 var (
-	errNoSkyBlockHash     = errors.New("no block found for height")
+	errNoSkyBlockHash = errors.New("no block found for height")
 )
 
 type dummySkyrpcclient struct {
@@ -26,6 +26,10 @@ type dummySkyrpcclient struct {
 	blockVerboseTxError          error
 	blockVerboseTxErrorCallCount int
 	blockVerboseTxCallCount      int
+
+	// used for testBtcScannerBlockNextHashAppears
+	blockNextHeightMissingOnceAt uint64
+	hasSetMissingHeight          bool
 }
 
 func openDummySkyDB(t *testing.T) *bolt.DB {
@@ -54,7 +58,12 @@ func (dsc *dummySkyrpcclient) GetBlockCount() (int64, error) {
 }
 
 func (dsc *dummySkyrpcclient) GetBlockVerboseTx(seq uint64) (*visor.ReadableBlock, error) {
-	//@TODO (therealssj): refactor this to directly read from the database
+	//TODO (therealssj): refactor this to directly read from the database
+	if seq > 0 && seq == dsc.blockNextHeightMissingOnceAt && !dsc.hasSetMissingHeight {
+		dsc.hasSetMissingHeight = true
+		return nil, errNoSkyBlockHash
+	}
+
 	dsc.blockVerboseTxCallCount++
 	if dsc.blockVerboseTxCallCount == dsc.blockVerboseTxErrorCallCount {
 		return nil, dsc.blockVerboseTxError
@@ -148,6 +157,8 @@ func testSkyScannerRunProcessedLoop(t *testing.T, scr *SKYScanner, nDeposits int
 			dv.ErrC <- nil
 		}
 
+		fmt.Println(nDeposits)
+		fmt.Println(len(dvs))
 		require.Equal(t, nDeposits, len(dvs))
 
 		// check all deposits
@@ -255,7 +266,6 @@ func testSkyScannerGetBlockCountErrorRetry(t *testing.T, skyDB *bolt.DB) {
 	testSkyScannerRun(t, scr)
 }
 
-
 func testSkyScannerProcessDepositError(t *testing.T, skyDB *bolt.DB) {
 	// Test that when processDeposit() fails, the deposit is NOT marked as processed
 	scr, shutdown := setupSkyScanner(t, skyDB)
@@ -337,7 +347,6 @@ func testSkyScannerScanBlockFailureRetry(t *testing.T, skyDB *bolt.DB) {
 	testSkyScannerRun(t, scr)
 }
 
-
 func testSkyScannerLoadUnprocessedDeposits(t *testing.T, skyDB *bolt.DB) {
 	// Test that pending unprocessed deposits from the db are loaded when
 	// then scanner starts.
@@ -417,6 +426,15 @@ func testSkyScannerDuplicateDepositScans(t *testing.T, skyDB *bolt.DB) {
 	testSkyScannerRunProcessedLoop(t, scr, 0)
 }
 
+func testSkyScannerBlockNextHashAppears(t *testing.T, skyDB *bolt.DB) {
+	scr, shutdown := setupSkyScanner(t, skyDB)
+	defer shutdown()
+
+	scr.skyClient.(*dummySkyrpcclient).blockNextHeightMissingOnceAt = 178
+
+	testSkyScannerRun(t, scr)
+}
+
 func TestSkyScanner(t *testing.T) {
 	skyDB := openDummySkyDB(t)
 	defer testutil.CheckError(t, skyDB.Close)
@@ -469,6 +487,13 @@ func TestSkyScanner(t *testing.T) {
 				t.Parallel()
 			}
 			testSkyScannerDuplicateDepositScans(t, skyDB)
+		})
+
+		t.Run("BlockNextHashAppears", func(t *testing.T) {
+			if parallel {
+				t.Parallel()
+			}
+			testSkyScannerBlockNextHashAppears(t, skyDB)
 		})
 	})
 

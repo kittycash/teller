@@ -6,9 +6,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/addrs"
+	"github.com/kittycash/teller/src/agent"
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/exchange"
-	"github.com/kittycash/teller/src/agent"
 )
 
 var (
@@ -35,9 +35,9 @@ func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addr
 		quit: make(chan struct{}),
 		done: make(chan struct{}),
 		httpServ: NewHTTPServer(log, cfg.Redacted(), &Service{
-			cfg:         cfg.Teller,
-			exchanger:   exchanger,
-			addrManager: addrManager,
+			cfg:          cfg.Teller,
+			exchanger:    exchanger,
+			addrManager:  addrManager,
 			agentManager: agentManager,
 		}, exchanger),
 	}
@@ -75,12 +75,11 @@ func (s *Teller) Shutdown() {
 
 // Service combines Exchanger and AddrGenerator
 type Service struct {
-	cfg         config.Teller
-	exchanger   exchange.Exchanger // exchange Teller client
-	addrManager *addrs.AddrManager // address manager
+	cfg          config.Teller
+	exchanger    exchange.Exchanger // exchange Teller client
+	addrManager  *addrs.AddrManager // address manager
 	agentManager agent.AgentManager // agent manager
 }
-
 
 // BindAddress binds kittyID with a deposit address according to coinType
 // return deposit address

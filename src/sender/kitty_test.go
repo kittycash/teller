@@ -1,5 +1,4 @@
 package sender
-//@TODO (therealssj): adjust this for kitty cash
 
 import (
 	"errors"
@@ -9,16 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-	"github.com/skycoin/skycoin/src/api/webrpc"
+	"github.com/kittycash/wallet/src/iko"
 	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/coin"
-	"github.com/skycoin/skycoin/src/visor"
-
 	"github.com/skycoin/teller/src/util/testutil"
 )
 
-type dummySkyClient struct {
+type dummyKittyClient struct {
 	sync.Mutex
 	broadcastTxTxid string
 	broadcastTxErr  error
@@ -27,74 +22,65 @@ type dummySkyClient struct {
 	getTxErr        error
 }
 
-func newDummySkyClient() *dummySkyClient {
-	return &dummySkyClient{}
+func newDummyKittyClient() *dummyKittyClient {
+	return &dummyKittyClient{}
 }
 
-func (ds *dummySkyClient) BroadcastTransaction(tx *coin.Transaction) (string, error) {
+func (ds *dummyKittyClient) InjectTransaction(tx *iko.Transaction) (string, error) {
 	return ds.broadcastTxTxid, ds.broadcastTxErr
 }
 
-func (ds *dummySkyClient) CreateTransaction(destAddr string, coins uint64) (*coin.Transaction, error) {
+func (ds *dummyKittyClient) CreateTransaction(destAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
 	if ds.createTxErr != nil {
 		return nil, ds.createTxErr
 	}
 
-	return ds.createTransaction(destAddr, coins)
+	return ds.createTransaction(destAddr, kittyID)
 }
 
-func (ds *dummySkyClient) createTransaction(destAddr string, coins uint64) (*coin.Transaction, error) {
+func (ds *dummyKittyClient) createTransaction(destAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
 	addr, err := cipher.DecodeBase58Address(destAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return &coin.Transaction{
-		Out: []coin.TransactionOutput{
-			{
-				Address: addr,
-				Coins:   coins,
-			},
-		},
+	return &iko.Transaction{
+		To:      addr,
+		KittyID: kittyID,
 	}, nil
 }
 
-func (ds *dummySkyClient) GetTransaction(txid string) (*webrpc.TxnResult, error) {
+func (ds *dummyKittyClient) GetTransaction(txhash iko.TxHash) (*iko.Transaction, error) {
 	ds.Lock()
 	defer ds.Unlock()
-	txjson := webrpc.TxnResult{
-		Transaction: &visor.TransactionResult{},
-	}
-	txjson.Transaction.Status.Confirmed = ds.txConfirmed
-	return &txjson, ds.getTxErr
+	txJson := iko.Transaction{}
+
+	return &txJson, ds.getTxErr
 }
 
-func (ds *dummySkyClient) Balance() (*cli.Balance, error) {
-	return &cli.Balance{
-		Coins: "100.000000",
-		Hours: "100",
-	}, nil
+func (ds *dummyKittyClient) Balance() int {
+	return 1
 }
 
-func (ds *dummySkyClient) changeConfirmStatus(v bool) {
+func (ds *dummyKittyClient) changeConfirmStatus(v bool) {
 	ds.Lock()
 	defer ds.Unlock()
 	ds.txConfirmed = v
 }
 
-func (ds *dummySkyClient) changeBroadcastTxErr(err error) {
+func (ds *dummyKittyClient) changeBroadcastTxErr(err error) {
 	ds.Lock()
 	defer ds.Unlock()
 	ds.broadcastTxErr = err
 }
 
-func (ds *dummySkyClient) changeBroadcastTxTxid(txid string) { // nolint: unparam
+func (ds *dummyKittyClient) changeBroadcastTxTxid(txid string) { // nolint: unparam
 	ds.Lock()
 	defer ds.Unlock()
 	ds.broadcastTxTxid = txid
 }
 
-func (ds *dummySkyClient) changeGetTxErr(err error) {
+func (ds *dummyKittyClient) changeGetTxErr(err error) {
 	ds.Lock()
 	defer ds.Unlock()
 	ds.getTxErr = err
@@ -102,7 +88,7 @@ func (ds *dummySkyClient) changeGetTxErr(err error) {
 
 func TestSenderBroadcastTransaction(t *testing.T) {
 	log, _ := testutil.NewLogger(t)
-	dsc := newDummySkyClient()
+	dsc := newDummyKittyClient()
 
 	dsc.changeBroadcastTxTxid("1111")
 	s := NewService(log, dsc)
@@ -111,11 +97,11 @@ func TestSenderBroadcastTransaction(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	addr := "KNtZkX2mw1UFuemv6FmEQxxhWCTWTm2Thk"
+	addr := "2fzr9thfdgHCWe8Hp9btr3nNEVTaAmkDk7"
 	sdr := NewRetrySender(s)
 
 	broadcastTx := func(sender Sender, addr string, amt uint64) (string, error) {
-		tx, err := sdr.CreateTransaction(addr, amt)
+		tx, err := sdr.CreateTransaction(addr, 2)
 		if err != nil {
 			return "", err
 		}
@@ -181,44 +167,4 @@ func TestSenderBroadcastTransaction(t *testing.T) {
 	txid, err = broadcastTx(sdr, "bxpUG8sCjeT6X1ES5SbD2LZrRudqiTY7wxx", 20)
 	require.Equal(t, "Invalid address length", err.Error())
 	require.Empty(t, txid)
-}
-
-func TestCreateTransactionVerify(t *testing.T) {
-	var testCases = []struct {
-		name       string
-		sendAmount cli.SendAmount
-		err        bool
-	}{
-		{
-			"valid address",
-			cli.SendAmount{
-				Addr:  "KNtZkX2mw1UFuemv6FmEQxxhWCTWTm2Thk",
-				Coins: 1,
-			},
-			false,
-		},
-		{
-			"invalid address",
-			cli.SendAmount{
-				Addr:  "addr1",
-				Coins: 1,
-			},
-			true,
-		},
-		{
-			"invalid coin amount",
-			cli.SendAmount{
-				Addr:  "KNtZkX2mw1UFuemv6FmEQxxhWCTWTm2Thk",
-				Coins: 0,
-			},
-			true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateSendAmount(tc.sendAmount)
-			require.Equal(t, tc.err, err != nil)
-		})
-	}
 }

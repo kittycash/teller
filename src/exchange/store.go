@@ -14,8 +14,6 @@ import (
 	"github.com/kittycash/teller/src/util/dbutil"
 )
 
-//@TODO bind kitty address to its sky or btc payment address
-
 var (
 	// DepositInfoBkt maps a BTC transaction to a DepositInfo
 	DepositInfoBkt = []byte("deposit_info")
@@ -73,13 +71,13 @@ func init() {
 type Storer interface {
 	GetBindAddress(depositAddr, coinType string) (*BoundAddress, error)
 	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
-	GetOrCreateDepositInfo(scanner.Deposit, string) (DepositInfo, error)
+	GetOrCreateDepositInfo(scanner.Deposit) (DepositInfo, error)
 	GetDepositInfoArray(DepositFilter) ([]DepositInfo, error)
 	GetDepositInfoOfKittyID(string) ([]DepositInfo, error)
 	UpdateDepositInfo(string, func(DepositInfo) DepositInfo) (DepositInfo, error)
 	UpdateDepositInfoCallback(string, func(DepositInfo) DepositInfo, func(DepositInfo) error) (DepositInfo, error)
 	GetKittyBindAddress(string) (*BoundAddress, error)
-	GetDepositStats() (int64, int64, error)
+	GetDepositStats() (int64, int64, int64, error)
 }
 
 // Store storage for exchange
@@ -175,9 +173,9 @@ func (s *Store) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddres
 	}
 
 	boundAddr := BoundAddress{
-		KittyID: kittyID,
-		Address:    depositAddr,
-		CoinType:   coinType,
+		KittyID:  kittyID,
+		Address:  depositAddr,
+		CoinType: coinType,
 	}
 
 	if err := s.db.Update(func(tx *bolt.Tx) error {
@@ -202,9 +200,8 @@ func (s *Store) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddres
 
 // GetOrCreateDepositInfo creates a DepositInfo unless one exists with the DepositInfo.DepositID key,
 // in which case it returns the existing DepositInfo.
-func (s *Store) GetOrCreateDepositInfo(dv scanner.Deposit, rate string) (DepositInfo, error) {
+func (s *Store) GetOrCreateDepositInfo(dv scanner.Deposit) (DepositInfo, error) {
 	log := s.log.WithField("deposit", dv)
-	log = log.WithField("rate", rate)
 
 	var finalDepositInfo DepositInfo
 	if err := s.db.Update(func(tx *bolt.Tx) error {
@@ -247,7 +244,7 @@ func (s *Store) GetOrCreateDepositInfo(dv scanner.Deposit, rate string) (Deposit
 			di := DepositInfo{
 				CoinType:       dv.CoinType,
 				DepositAddress: dv.Address,
-				KittyID:     boundAddr.KittyID,
+				KittyID:        boundAddr.KittyID,
 				DepositID:      dv.ID(),
 				Status:         StatusWaitDecide,
 				DepositValue:   dv.Value,
@@ -489,10 +486,11 @@ func (s *Store) GetKittyBindAddress(kittyID string) (*BoundAddress, error) {
 //	return addrs, nil
 //}
 
-// GetDepositStats returns BTC received and SKY sent
-func (s *Store) GetDepositStats() (int64, int64, error) {
+// GetDepositStats returns BTC and SKY received and boxes sent
+func (s *Store) GetDepositStats() (int64, int64, int64, error) {
 	var totalBTCReceived int64
 	var totalSKYReceived int64
+	var totalBoxesSent int64
 
 	if err := s.db.View(func(tx *bolt.Tx) error {
 		return dbutil.ForEach(tx, DepositInfoBkt, func(k, v []byte) error {
@@ -509,11 +507,16 @@ func (s *Store) GetDepositStats() (int64, int64, error) {
 				totalSKYReceived += dpi.DepositValue
 			}
 
+			// TotalBoxesSent = no. of deposits with status == done
+			if dpi.Status == StatusDone {
+				totalBoxesSent++
+			}
+
 			return nil
 		})
 	}); err != nil {
-		return -1, -1, err
+		return -1, -1, -1, err
 	}
 
-	return totalBTCReceived, totalSKYReceived, nil
+	return totalBTCReceived, totalSKYReceived, totalBoxesSent, nil
 }

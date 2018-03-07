@@ -281,6 +281,7 @@ func (s *Store) scanBlock(block *CommonBlock, coinType string) ([]Deposit, error
 	var dvs []Deposit
 
 	if err := s.db.Update(func(tx *bolt.Tx) error {
+		// return a list of deposit addresses
 		addrs, err := s.getScanAddressesTx(tx, coinType)
 		if err != nil {
 			s.log.WithError(err).Error("getScanAddressesTx failed")

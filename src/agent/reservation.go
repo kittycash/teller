@@ -1,10 +1,11 @@
 package agent
 
 import (
-	"github.com/kittycash/teller/src/box"
-	"time"
-	"github.com/go-errors/errors"
 	"sync"
+	"time"
+
+	"github.com/go-errors/errors"
+	"github.com/kittycash/teller/src/box"
 )
 
 // @TODO handle reservation expiry
@@ -60,7 +61,7 @@ func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservat
 	defer rm.RUnlock()
 
 	// check if the reservation exists
-	if  _, ok := rm.Reservations[kittyID]; !ok {
+	if _, ok := rm.Reservations[kittyID]; !ok {
 		return nil, ErrReservationNotFound
 	}
 
@@ -74,7 +75,7 @@ func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservati
 
 	for _, r := range rm.Reservations {
 		if r.Status == status {
-			reservations = append(reservations, r)
+			reservations = append(reservations, *r)
 		}
 	}
 
@@ -87,7 +88,7 @@ func (rm *ReservationManager) GetReservations() []Reservation {
 
 	var reservations []Reservation
 	for _, r := range rm.Reservations {
-		reservations = append(reservations, r)
+		reservations = append(reservations, *r)
 	}
 
 	return reservations
@@ -98,7 +99,6 @@ func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status str
 	defer rm.Unlock()
 	rm.Reservations[kittyID].Status = status
 }
-
 
 // MakeReservation reserves a kitty box
 // Args:
@@ -144,24 +144,15 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 // Args:
 // userAddress: Address of the user reserving the box
 // kittyID: ID of kitty in the reservation box
-func (a *Agent) CancelReservation(kittyID string) error {
-	// fetch the user who has reserved the kitty box
-	user, err := a.store.GetReservationUserFromKittyID(kittyID)
+func (a *Agent) CancelReservation(userAddress, kittyID string) error {
+	user, err := a.UserManager.GetUser(userAddress)
 	if err != nil {
-		a.log.WithError(err).Error("GetReservationUserFromKittyID failed")
 		return err
 	}
-	// get the reservations of the user
-	reservations, err := a.store.GetUserReservations(user.Address)
-	if err != nil {
-		a.log.WithError(err).Error("GetUserReservations failed")
-		return err
-	}
-
 	var reservation *Reservation
-	for i := range reservations {
-		if reservations[i].Box.KittyID == kittyID {
-			reservation = &reservations[i]
+	for i  := range user.Reservations {
+		if user.Reservations[i].Box.KittyID == kittyID {
+			reservation = &user.Reservations[i]
 			// make the reservation available
 			reservation.MakeAvailable()
 			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
@@ -172,12 +163,10 @@ func (a *Agent) CancelReservation(kittyID string) error {
 			}
 
 			// delete the reservation
-			reservations = append(reservations[:i], reservations[i+1:]...)
+			user.Reservations = append(user.Reservations[:i], user.Reservations[i+1:]...)
 
-			// update user reservations
-			user.Reservations = reservations
 			a.store.UpdateUser(user)
-
+			break
 		}
 	}
 

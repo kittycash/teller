@@ -18,11 +18,11 @@ import (
 	"github.com/unrolled/secure"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/skycoin/skycoin/src/cipher"
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/exchange"
 	"github.com/kittycash/teller/src/util/httputil"
 	"github.com/kittycash/teller/src/util/logger"
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 const (

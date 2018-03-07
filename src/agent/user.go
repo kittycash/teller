@@ -1,13 +1,14 @@
 package agent
 
 import (
-	"sync"
 	"errors"
+	"sync"
 )
 
 var (
 	ErrUserNotFound = errors.New("User not found")
 )
+
 // User represent a kitty cash user
 type User struct {
 	sync.Mutex `json:"-"`
@@ -28,8 +29,10 @@ type UserManager struct {
 }
 
 func (um *UserManager) GetUser(userAddr string) (*User, error) {
-	if _, ok := um.Users[userAddr]; !ok {
+	if u, ok := um.Users[userAddr]; !ok {
 		return nil, ErrUserNotFound
+	} else {
+		return u, nil
 	}
 }
 

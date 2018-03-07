@@ -14,6 +14,7 @@ import (
 	"runtime/pprof"
 	"sync"
 	"time"
+
 	"github.com/google/gops/agent"
 
 	"github.com/boltdb/bolt"
@@ -89,7 +90,7 @@ func createSkyScanner(log logrus.FieldLogger, cfg config.Config, scanStore *scan
 	}
 
 	skyScanner, err := scanner.NewSKYScanner(log, scanStore, skyrpc, scanner.Config{
-		ScanPeriod: cfg.SkyScanner.ScanPeriod,
+		ScanPeriod:        cfg.SkyScanner.ScanPeriod,
 		InitialScanHeight: cfg.SkyScanner.InitialScanHeight,
 	})
 	if err != nil {
@@ -181,7 +182,7 @@ func run() error {
 	var sendService *sender.SendService
 	var sendAPI sender.Sender
 	var btcAddrMgr *addrs.Addrs
-	var skyAddrMgr  *addrs.Addrs
+	var skyAddrMgr *addrs.Addrs
 
 	//create multiplexer to manage scanner
 	multiplexer := scanner.NewMultiplexer(log)
@@ -268,7 +269,6 @@ func run() error {
 		}()
 	}
 
-	// @TODO the exchange service needs to handle sky and btc payment and then forward to sender to send the boxes
 	// create exchange service
 	exchangeStore, err := exchange.NewStore(log, db)
 	if err != nil {
@@ -326,7 +326,7 @@ func run() error {
 	}
 
 	// create agent store
-	agentStore,err  := kittyagent.NewStore(log, db)
+	agentStore, err := kittyagent.NewStore(log, db)
 	if err != nil {
 		log.WithError(err).Error("agent.NewStore failed")
 		return err
@@ -377,7 +377,6 @@ func run() error {
 		log.Info("Shutting down btcScanner")
 		btcScanner.Shutdown()
 	}
-
 
 	// close exchange service
 	log.Info("Shutting down exchangeClient")

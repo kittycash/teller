@@ -66,13 +66,13 @@ func NewDepositNote(dv Deposit) DepositNote {
 
 // Deposit struct
 type Deposit struct {
-	CoinType string        // coin type
-	Address  string        // deposit address
-	Value    int64         // deposit amount. For BTC, measured in satoshis.
-	Height   int64         // the block height
-	Tx       string        // the transaction id
-	N        uint32        // the index of vout in the tx [BTC]
-	Status   DepositStatus // whether this was received by the exchange and saved
+	CoinType  string        // coin type
+	Address   string        // deposit address
+	Value     int64         // deposit amount. For BTC, measured in satoshis.
+	Height    int64         // the block height
+	Tx        string        // the transaction id
+	N         uint32        // the index of vout in the tx [BTC]
+	Status    DepositStatus // whether this was received by the exchange and saved
 	Processed bool
 }
 

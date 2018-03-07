@@ -1,10 +1,7 @@
 package sender
 
-//@TODO (therealssj): adjust this for kittycash
-
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -13,13 +10,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/coin"
-	"github.com/skycoin/skycoin/src/util/droplet"
+	"errors"
+	"time"
 
-	"github.com/skycoin/teller/src/util/httputil"
 	"github.com/kittycash/wallet/src/iko"
+	"github.com/skycoin/skycoin/src/cipher"
+	"github.com/skycoin/teller/src/util/httputil"
 )
 
 const seed = "survey tank about rely harbor client penalty antenna labor target jaguar bind"
@@ -33,7 +29,7 @@ func randSHA256() (cipher.SHA256, error) {
 	return cipher.SumSHA256(b), nil
 }
 
-// DummyTransaction wraps a *coin.Transaction with metadata for DummySender
+// DummyTransaction wraps a *iko.Transaction with metadata for DummySender
 type DummyTransaction struct {
 	*iko.Transaction
 	Confirmed bool
@@ -41,15 +37,14 @@ type DummyTransaction struct {
 }
 
 // DummySender implements the Exchanger interface in order to simulate
-// SKY sendouts
+// box sendouts
 type DummySender struct {
 	broadcastTxns map[string]*DummyTransaction
 	seq           int64
 	secKey        cipher.SecKey
 	log           logrus.FieldLogger
 	sync.RWMutex
-	coins uint64
-	hours uint64
+	kittyID iko.KittyID
 }
 
 // NewDummySender creates a DummySender
@@ -60,16 +55,49 @@ func NewDummySender(log logrus.FieldLogger) *DummySender {
 		broadcastTxns: make(map[string]*DummyTransaction),
 		secKey:        sec,
 		log:           log.WithField("prefix", "sender.dummy"),
-		coins:         100000000,
-		hours:         100,
+		kittyID:       9,
 	}
 }
 
-// CreateTransaction creates a fake skycoin transaction
+// CreateTransaction creates a fake kitty cash transaction
 func (s *DummySender) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
+	if kittyID != s.kittyID {
+		return nil, NewAPIError(errors.New("Kitty not found"))
+	}
 
-	txn := &iko.Transaction{}
+	s.log.WithFields(logrus.Fields{
+		"kitty_id": kittyID,
+		"addr":     recvAddr,
+	}).Info("CreateTransaction")
 
+	fromAddr, err := cipher.DecodeBase58Address("2fzr9thfdgHCWe8Hp9btr3nNEVTaAmkDk7")
+	if err != nil {
+		s.log.WithError(err).Error("CreateTransaction called with invalid from address")
+		return nil, err
+	}
+
+	destAddr, err := cipher.DecodeBase58Address(recvAddr)
+	if err != nil {
+		s.log.WithError(err).Error("CreateTransaction called with invalid destination address")
+		return nil, err
+	}
+
+	randomPrev, err := randSHA256()
+	if err != nil {
+		s.log.WithError(err).Error("randSHA256 failed")
+		return nil, err
+	}
+
+	txn := &iko.Transaction{
+		Prev:    iko.TxHash(randomPrev),
+		Seq:     10,
+		TS:      time.Now().Unix(),
+		KittyID: kittyID,
+		From:    fromAddr,
+		To:      destAddr,
+	}
+
+	txn.Sig = txn.Sign(s.secKey)
 	return txn, nil
 }
 
@@ -121,7 +149,7 @@ func (s *DummySender) IsTxConfirmed(txid *iko.TxHash) *ConfirmResponse {
 		Err:       nil,
 		Req: ConfirmRequest{
 			TxHash: txid,
-			RspC: make(chan *ConfirmResponse, 1),
+			RspC:   make(chan *ConfirmResponse, 1),
 		},
 	}
 }
@@ -157,8 +185,8 @@ func (s *DummySender) getBroadcastedTransactions() []*DummyTransaction {
 }
 
 type dummyTransactionResponseOutput struct {
-	Address string `json:"address"`
-	Coins   string `json:"coins"`
+	Address string      `json:"address"`
+	KittyID iko.KittyID `json:"kitty_id"`
 }
 
 type dummyTransactionResponse struct {

@@ -1,20 +1,19 @@
 package teller
 
 import (
-	"fmt"
-	"github.com/sirupsen/logrus"
-	"strings"
-	"math/big"
-	"net/http"
-	"github.com/kittycash/teller/src/exchange"
-	"github.com/kittycash/teller/src/util/logger"
-	"github.com/kittycash/teller/src/util/httputil"
-	"github.com/kittycash/teller/src/sender"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/kittycash/teller/src/addrs"
 	"github.com/kittycash/teller/src/agent"
-	"github.com/skycoin/skycoin/src/util/droplet"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/httputil"
+	"github.com/kittycash/teller/src/util/logger"
+	"github.com/sirupsen/logrus"
 )
 
 //@TODO add authentication checks
@@ -82,10 +81,10 @@ func StatusHandler(s *HTTPServer) http.HandlerFunc {
 
 // ConfigResponse http response for /api/config
 type ConfigResponse struct {
-	Enabled                  bool   `json:"enabled"`
-	BtcConfirmationsRequired int64  `json:"btc_confirmations_required"`
-	MaxBoundAddresses        int    `json:"max_bound_addrs"`
-	MaxDecimals              int    `json:"max_decimals"`
+	Enabled                  bool  `json:"enabled"`
+	BtcConfirmationsRequired int64 `json:"btc_confirmations_required"`
+	MaxBoundAddresses        int   `json:"max_bound_addrs"`
+	MaxDecimals              int   `json:"max_decimals"`
 }
 
 // ConfigHandler returns the teller configuration
@@ -105,8 +104,7 @@ type ExchangeStatusResponse struct {
 
 // ExchangeStatusResponseBalance is the balance field of ExchangeStatusResponse
 type ExchangeStatusResponseBalance struct {
-	Coins string `json:"coins"`
-	Hours string `json:"hours"`
+	Kitties int `json:"kitties"`
 }
 
 // ExchangeStatusHandler returns the status of the exchanger
@@ -135,23 +133,13 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		default:
 		}
 
-		// Get the wallet balance, but ignore any error. If an error occurs,
-		// return a balance of 0
-		bal, err := s.exchanger.Balance()
-		coins := "0.000000"
-		hours := "0"
-		if err != nil {
-			log.WithError(err).Error("s.exchange.Balance failed")
-		} else {
-			coins = bal.Coins
-			hours = bal.Hours
-		}
+		// Get the wallet balance, 
+		kitties := s.exchanger.Balance()
 
 		resp := ExchangeStatusResponse{
 			Error: errorMsg,
 			Balance: ExchangeStatusResponseBalance{
-				Coins: coins,
-				Hours: hours,
+				Kitties: kitties,
 			},
 		}
 
@@ -274,11 +262,13 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 //@TODO do I need this? return more information?
 // CancelReservationResponse represents response of a cancel reservation request
 type CancelReservationResponse struct {
-	KittyID string `json:"kitty_id"`
+	UserAddress string `json:"user_address"`
+	KittyID     string `json:"kitty_id"`
 }
 
 type cancelReservationRequest struct {
-	KittyID string `json:"kitty_id"`
+	UserAddress string `json:"user_address"`
+	KittyID     string `json:"kitty_id"`
 }
 
 // cancelHandler cancels a reservation
@@ -286,6 +276,7 @@ type cancelReservationRequest struct {
 // Accept: application/json
 // URI: /api/reservation/cancel
 // Args:
+//    {"user_address": "<user_address>"}
 //    {"kitty_id": "<kitty_Id>"}
 func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -304,13 +295,6 @@ func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
-		// kittyID will always be our unique identifier
-		kittyID := r.FormValue("kittyId")
-		if kittyID == "" {
-			httputil.ErrResponse(w, http.StatusBadRequest)
-			return
-		}
-
 		cancelReservationReq := &cancelReservationRequest{}
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&cancelReservationReq); err != nil {
@@ -325,7 +309,9 @@ func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 		}(log)
 
 		// cancel the reservation
-		err := s.service.agentManager.CancelReservation(kittyID)
+		err := s.service.agentManager.CancelReservation(
+		cancelReservationReq.UserAddress, cancelReservationReq.KittyID)
+
 		if err != nil {
 			log.WithError(err).Error("s.agent.CancelReservation failed")
 			switch err {
@@ -338,14 +324,16 @@ func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 		}
 
 		if err := httputil.JSONResponse(w, CancelReservationResponse{
-			KittyID: kittyID,
+			cancelReservationReq.UserAddress,
+			cancelReservationReq.KittyID,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}
 	}
 }
 
-// ReservationsResponse represents reservations of a desired status, like available or reserved
+// ReservationsResponse represents reservations of a desired status
+// like available or reserved
 type ReservationsResponse struct {
 	Reservations []agent.Reservation `json:"reservations"`
 	Status       string              `json:"status"`
@@ -383,18 +371,18 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 
 		if err := httputil.JSONResponse(w, ReservationsResponse{
 			Reservations: reservations,
-			Status: status,
+			Status:       status,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}
 	}
 }
 
-
 type GetDepositAddressResponse struct {
 	UserAddress string `json:"user_address"`
 	KittyID     string `json:"kitty_id"`
 }
+
 // GetReservationsHandler gets reservations based on the status
 // Method: GET
 // Accept: application/json
@@ -433,7 +421,7 @@ func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 
 		if err := httputil.JSONResponse(w, GetDepositAddressResponse{
 			UserAddress: addr,
-			KittyID: kittyID,
+			KittyID:     kittyID,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}

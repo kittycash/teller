@@ -3,7 +3,6 @@ package agent
 
 import (
 	"github.com/sirupsen/logrus"
-	"github.com/kittycash/wallet/src/iko"
 )
 
 //@TODO implement limits
@@ -21,25 +20,41 @@ type Config struct {
 // AgentManager provides APIs to interact with the agent service
 type AgentManager interface {
 	MakeReservation(userAddress string, kittyID string, coinType string) error
-	CancelReservation(kittyID string) error
+	CancelReservation(userAddress, kittyID string) error
 	GetReservations(status string) ([]Reservation, error)
 	GetKittyDepositAddress(kittyID string) (string, error)
 }
 
 // Agent represents an agent object
 type Agent struct {
-	log   logrus.FieldLogger
-	store Storer
-	cfg   Config
+	log                logrus.FieldLogger
+	store              Storer
+	cfg                Config
 	ReservationManager *ReservationManager
-	UserManager *UserManager
+	UserManager        *UserManager
 }
 
 // New creates a new agent service
 func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
+	reservations, _ := store.GetReservations()
+	users, _ := store.GetUsers()
+
+	var um UserManager
+	var rm ReservationManager
+
+	for _, r := range reservations {
+		rm.Reservations[r.Box.KittyID] = &r
+	}
+
+	for _, u := range users {
+		um.Users[u.Address] = &u
+	}
 	return &Agent{
 		log:   log.WithField("prefix", "teller.agent"),
 		cfg:   cfg,
 		store: store,
+		ReservationManager: &rm,
+		UserManager: &um,
 	}
 }
+

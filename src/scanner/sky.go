@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/skycoin/skycoin/src/visor"
-	"github.com/skycoin/skycoin/src/util/droplet"
 	"github.com/skycoin/skycoin/src/api/webrpc"
+	"github.com/skycoin/skycoin/src/util/droplet"
+	"github.com/skycoin/skycoin/src/visor"
 )
 
 // SKYScanner blockchain scanner to check if there're deposit coins
@@ -168,31 +168,6 @@ func (s *SKYScanner) waitForNextBlock(block *CommonBlock) (*CommonBlock, error) 
 	log := s.log.WithField("blockHash", block.Hash)
 	log = log.WithField("blockHeight", block.Height)
 	log.Debug("Waiting for the next block")
-
-	blockCnt, err := s.skyClient.GetBlockCount()
-	if err != nil {
-		log.WithError(err).Error("skyClient.GetBlockCount failed")
-		return nil, err
-	}
-
-	// wait and scan again if we have reached the latest block
-	// till new block is found
-	if blockCnt == block.Height {
-		log.Info("Reached latest block, recanning until new block arrives")
-
-		for {
-			blockCnt, err = s.skyClient.GetBlockCount()
-			if err != nil || block.Height == blockCnt {
-				select {
-				case <-s.Base.GetQuitChan():
-					return nil, errQuit
-				case <-time.After(s.Base.GetScanPeriod()):
-					continue
-				}
-			}
-			break
-		}
-	}
 
 	for {
 		nextBlock, err := s.getNextBlock(block.Height)

@@ -31,8 +31,6 @@ type Config struct {
 
 	// Path of BTC addresses JSON file
 	BtcAddresses string `mapstructure:"btc_addresses"`
-	// Path of ETH addresses JSON file
-	EthAddresses string `mapstructure:"eth_addresses"`
 	// Path of SKY addresses JSON file
 	SkyAddresses string `mapstructure:"sky_addresses"`
 
@@ -65,7 +63,7 @@ type Teller struct {
 // SkyRPC config for Skycoin daemon node RPC
 type SkyRPC struct {
 	Address string `mapstructure:"address"`
-	Enabled bool `mapstructure:"enabled"`
+	Enabled bool   `mapstructure:"enabled"`
 }
 
 // BtcRPC config for btcrpc
@@ -94,9 +92,6 @@ type SkyScanner struct {
 
 // BoxExchanger config for box sender
 type BoxExchanger struct {
-	// SKY/BTC exchange rate. Can be an int, float or rational fraction string
-	BoxBtcExchangeRate string `mapstructure:"sky_btc_exchange_rate"`
-	BoxSkyExchangeRate string `mapstructure:"sky_eth_exchange_rate"`
 	// Number of decimal places to truncate SKY to
 	MaxDecimals int `mapstructure:"max_decimals"`
 	// Path of hot kitty wallet file on disk
@@ -126,14 +121,6 @@ func (c BoxExchanger) Validate() error {
 func (c BoxExchanger) validate() []error {
 	var errs []error
 
-	if _, err := mathutil.ParseRate(c.BoxBtcExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.box_btc_exchange_rate invalid: %v", err))
-	}
-
-	if _, err := mathutil.ParseRate(c.BoxSkyExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.box_sky_exchange_rate invalid: %v", err))
-	}
-
 	if c.MaxDecimals < 0 {
 		errs = append(errs, errors.New("sky_exchanger.max_decimals can't be negative"))
 	}
@@ -144,7 +131,6 @@ func (c BoxExchanger) validate() []error {
 
 	return errs
 }
-
 
 func (c BoxExchanger) validateWallet() []error {
 	var errs []error
