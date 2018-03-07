@@ -7,8 +7,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/scanner"
 	"github.com/kittycash/teller/src/sender"
@@ -49,7 +47,7 @@ type Exchanger interface {
 	IsBound(kittyAddr string) bool
 	GetDepositStats() (*DepositStats, error)
 	Status() error
-	Balance() (*cli.Balance, error)
+	Balance() int
 }
 
 // Exchange encompasses an entire coin<>skycoin deposit-process-send flow
@@ -182,6 +180,7 @@ type DepositStatusDetail struct {
 	Status         string `json:"status"`
 	KittyID        string `json:"kitty_id"`
 	DepositAddress string `json:"deposit_address"`
+	OwnerAddress   string `json:"owner_address"`
 	CoinType       string `json:"coin_type"`
 	Txid           string `json:"txid"`
 }
@@ -220,8 +219,9 @@ func (e *Exchange) GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDet
 			Status:         di.Status.String(),
 			KittyID:        di.KittyID,
 			DepositAddress: di.DepositAddress,
-			Txid:           di.Txid,
+			Txid:           di.TxHash.Hex(),
 			CoinType:       di.CoinType,
+			OwnerAddress:   di.OwnerAddress,
 		})
 	}
 	return dss, nil
@@ -236,7 +236,7 @@ func (e *Exchange) IsBound(kittyID string) bool {
 
 // GetDepositStats returns deposit status
 func (e *Exchange) GetDepositStats() (*DepositStats, error) {
-	tbr, tsr, err := e.store.GetDepositStats()
+	tbr, tsr, tbs, err := e.store.GetDepositStats()
 	if err != nil {
 		return nil, err
 	}
@@ -244,11 +244,13 @@ func (e *Exchange) GetDepositStats() (*DepositStats, error) {
 	return &DepositStats{
 		TotalBTCReceived: tbr,
 		TotalSKYReceived: tsr,
+		TotalBoxesSent: tbs,
 	}, nil
 }
 
 // Balance returns the number of coins left in the OTC wallet
-func (e *Exchange) Balance() (*cli.Balance, error) {
+func (e *Exchange) Balance() int {
+	//@TODO (therealssj): implement this
 	return e.Sender.Balance()
 }
 

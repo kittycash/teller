@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kittycash/teller/src/scanner"
+	"github.com/kittycash/wallet/src/iko"
 )
 
 // Status deposit Status
@@ -65,19 +66,18 @@ type BoundAddress struct {
 	CoinType string
 }
 
-//@TODO add sky btc conversion rate?
-// DepositInfo records the deposit info
+ // DepositInfo records the deposit info
 type DepositInfo struct {
 	Seq            uint64
 	UpdatedAt      int64
-	Status         Status // TODO -- migrate to string statuses?
+	Status         Status
 	CoinType       string
 	KittyID        string
 	DepositAddress string
 	OwnerAddress   string
 	DepositID      string
-	Txid           string
-	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC)
+	TxHash         *iko.TxHash
+	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC or droplets for skycoin)
 	Error          string // An error that occurred during processing
 	// The original Deposit is saved for the records, in case there is a mistake.
 	// Do not use this data directly.  All necessary data is copied to the top level
@@ -87,9 +87,9 @@ type DepositInfo struct {
 
 // DepositStats records overall statistics about deposits
 type DepositStats struct {
-	TotalBTCReceived int64  `json:"total_btc_received"`
+	TotalBTCReceived int64 `json:"total_btc_received"`
 	TotalSKYReceived int64 `json:"total_sky_received"`
-	TotalBoxesSent   int64  `json:"total_boxes_sent"`
+	TotalBoxesSent   int64 `json:"total_boxes_sent"`
 }
 
 // ValidateForStatus does a consistency check of the data based upon the Status value
@@ -121,7 +121,7 @@ func (di DepositInfo) ValidateForStatus() error {
 	//@TODO: refactor the statuses if required
 	switch di.Status {
 	case StatusDone:
-		if di.Error != ErrEmptySendAmount.Error() && di.Txid == "" {
+		if di.Error != ErrEmptySendAmount.Error() && di.TxHash == nil {
 			return errors.New("Txid missing")
 		}
 		// Don't check SkySent == 0, it is possible to have StatusDone with
@@ -131,7 +131,7 @@ func (di DepositInfo) ValidateForStatus() error {
 		return checkWaitSend()
 
 	case StatusWaitConfirm:
-		if di.Txid == "" {
+		if di.TxHash == nil {
 			return errors.New("Txid missing")
 		}
 

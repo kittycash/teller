@@ -3,8 +3,6 @@ package sender
 import (
 	"errors"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-	"github.com/skycoin/skycoin/src/coin"
 	"github.com/kittycash/wallet/src/iko"
 )
 

@@ -64,7 +64,6 @@ func testNewSkyAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addr
 	skya, err := NewAddrs(log, db, addresses, "test_bucket_sky")
 	require.NoError(t, err)
 
-
 	addrMap := make(map[string]struct{}, len(skya.addresses))
 	for _, a := range skya.addresses {
 		addrMap[a] = struct{}{}

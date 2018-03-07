@@ -58,4 +58,3 @@ func verifySKYAddresses(addrs []string) error {
 
 	return nil
 }
-

@@ -41,7 +41,7 @@ type BroadcastTxResponse struct {
 // ConfirmRequest tx confirmation request struct
 type ConfirmRequest struct {
 	TxHash *iko.TxHash
-	RspC chan *ConfirmResponse
+	RspC   chan *ConfirmResponse
 }
 
 // Verify verifies the request parameters

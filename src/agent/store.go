@@ -1,12 +1,12 @@
 package agent
 
 import (
-	"github.com/boltdb/bolt"
-	"github.com/sirupsen/logrus"
-	"errors"
-	"github.com/kittycash/teller/src/util/dbutil"
-	"github.com/kittycash/teller/src/box"
 	"encoding/json"
+	"errors"
+
+	"github.com/boltdb/bolt"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -25,9 +25,11 @@ var (
 
 // Storer interface handles database interactions
 type Storer interface {
-	GetReservations(status string) ([]Reservation, error)
+	GetReservations() ([]Reservation, error)
+	GetReservationsByStatus(status string) ([]Reservation, error)
 	GetReservationFromKittyID(kittyID string) (*Reservation, error)
 	GetReservationUserFromKittyID(kittyID string) (*User, error)
+	GetUsers() ([]User, error)
 	GetUser(userAddr string) (*User, error)
 	GetUserReservations(userAddr string) ([]Reservation, error)
 	UpdateUser(user *User) error
@@ -36,8 +38,8 @@ type Storer interface {
 
 // Store saves reservations and user data
 type Store struct {
-	db        *bolt.DB
-	log       logrus.FieldLogger
+	db  *bolt.DB
+	log logrus.FieldLogger
 }
 
 // NewStore creates an agent Store
@@ -71,11 +73,34 @@ func NewStore(log logrus.FieldLogger, db *bolt.DB) (*Store, error) {
 		return nil, err
 	}
 
-
 	return &Store{
 		db:  db,
 		log: log,
 	}, nil
+}
+
+func (s *Store) GetReservations() ([]Reservation, error) {
+	var reservations []Reservation
+
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		return dbutil.ForEach(tx, ReservationsKittyBkt, func(k, v []byte) error {
+			var reservation Reservation
+
+			err = json.Unmarshal(v, &reservation)
+			if err != nil {
+				return err
+			}
+
+			reservations = append(reservations, reservation)
+
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+
+	return reservations, nil
 }
 
 // GetReservation returns a reservation instance
@@ -112,10 +137,10 @@ func (s *Store) GetReservationUserFromKittyID(kittyID string) (*User, error) {
 	return s.GetUser(userAddr)
 }
 
-// GetReservations gets reversation based on the reservation status
+// GetReservationsByStatus gets reversation based on the reservation status
 // Args:
 // status: Reservation status, availabled or reserved
-func (s *Store) GetReservations(status string) ([]Reservation, error) {
+func (s *Store) GetReservationsByStatus(status string) ([]Reservation, error) {
 	var reservations []Reservation
 
 	if err := s.db.View(func(tx *bolt.Tx) error {
@@ -141,6 +166,30 @@ func (s *Store) GetReservations(status string) ([]Reservation, error) {
 	}
 
 	return reservations, nil
+}
+
+func (s *Store) GetUsers() ([]User, error) {
+	var users []User
+
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		return dbutil.ForEach(tx, UsersBkt, func(k, v []byte) error {
+			var user User
+
+			err = json.Unmarshal(v, &user)
+			if err != nil {
+				return err
+			}
+
+			users = append(users, user)
+
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 // GetUser gets user info from the user address

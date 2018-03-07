@@ -62,7 +62,6 @@ func testAddBtcScanner(t *testing.T, db *bolt.DB, m *Multiplexer) (*BTCScanner, 
 	return scr, shutdown
 }
 
-
 func testAddSkyScanAddresses(t *testing.T, m *Multiplexer) int64 {
 	var nDeposits int64
 	// This address has 0 deposits

@@ -10,22 +10,9 @@ import (
 	"github.com/kittycash/teller/src/scanner"
 )
 
-func init() {
-	// Assert that getRate() handles all coin types
-	cfg := config.BoxExchanger{
-		BoxBtcExchangeRate: "1",
-		BoxSkyExchangeRate: "2",
-	}
-	for _, ct := range scanner.GetCoinTypes() {
-		rate, err := getRate(cfg, ct)
-		if err != nil {
-			panic(err)
-		}
-		if rate == "" {
-			panic(fmt.Sprintf("getRate(%s) did not find a rate", ct))
-		}
-	}
-}
+//func init() {
+//	cfg := config.BoxExchanger{	}
+//}
 
 // Receiver is a component that reads deposits from a scanner.Scanner and records them
 type Receiver interface {
@@ -164,14 +151,8 @@ func (r *Receive) Deposits() <-chan DepositInfo {
 func (r *Receive) saveIncomingDeposit(dv scanner.Deposit) (DepositInfo, error) {
 	log := r.log.WithField("deposit", dv)
 
-	var rate string
-	rate, err := r.getRate(dv.CoinType)
-	if err != nil {
-		log.WithError(err).Error("get conversion rate failed")
-		return DepositInfo{}, err
-	}
 
-	di, err := r.store.GetOrCreateDepositInfo(dv, rate)
+	di, err := r.store.GetOrCreateDepositInfo(dv)
 	if err != nil {
 		log.WithError(err).Error("GetOrCreateDepositInfo failed")
 		return DepositInfo{}, err
@@ -181,23 +162,6 @@ func (r *Receive) saveIncomingDeposit(dv scanner.Deposit) (DepositInfo, error) {
 	log.Info("Saved DepositInfo")
 
 	return di, err
-}
-
-// getRate returns conversion rate according to coin type
-func (r *Receive) getRate(coinType string) (string, error) {
-	return getRate(r.cfg, coinType)
-}
-
-// getRate returns conversion rate according to coin type
-func getRate(cfg config.BoxExchanger, coinType string) (string, error) {
-	switch coinType {
-	case scanner.CoinTypeBTC:
-		return cfg.BoxBtcExchangeRate, nil
-	case scanner.CoinTypeSKY:
-		return cfg.BoxSkyExchangeRate, nil
-	default:
-		return "", scanner.ErrUnsupportedCoinType
-	}
 }
 
 // BindAddress binds deposit address with kitty id, and

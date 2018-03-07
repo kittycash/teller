@@ -3,13 +3,14 @@ package sender
 import (
 	"errors"
 
-	"github.com/skycoin/skycoin/src/cipher"
-	kittyClient "github.com/kittycash/wallet/src/http"
-	"net/http"
-	"github.com/kittycash/wallet/src/iko"
 	"fmt"
-	"github.com/kittycash/wallet/src/wallet"
+	"net/http"
 	"os"
+
+	kittyClient "github.com/kittycash/wallet/src/http"
+	"github.com/kittycash/wallet/src/iko"
+	"github.com/kittycash/wallet/src/wallet"
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 // APIError wraps errors from the kittycash http api
@@ -74,7 +75,7 @@ func (c *API) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Tran
 			break
 		}
 	}
-	
+
 	//@TODO (therealssj): we need to move box? don't know how yet.
 	// create a transfer tx
 	transferTx := iko.NewTransferTx(tx, kittyID, toAddr, secKey)
