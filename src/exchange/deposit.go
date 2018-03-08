@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/kittycash/teller/src/scanner"
-	"github.com/kittycash/wallet/src/iko"
 )
 
 // Status deposit Status
@@ -66,7 +65,7 @@ type BoundAddress struct {
 	CoinType string
 }
 
- // DepositInfo records the deposit info
+// DepositInfo records the deposit info
 type DepositInfo struct {
 	Seq            uint64
 	UpdatedAt      int64
@@ -76,7 +75,7 @@ type DepositInfo struct {
 	DepositAddress string
 	OwnerAddress   string
 	DepositID      string
-	TxHash         *iko.TxHash
+	Txid           string // txhash
 	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC or droplets for skycoin)
 	Error          string // An error that occurred during processing
 	// The original Deposit is saved for the records, in case there is a mistake.
@@ -118,10 +117,9 @@ func (di DepositInfo) ValidateForStatus() error {
 		return nil
 	}
 
-	//@TODO: refactor the statuses if required
 	switch di.Status {
 	case StatusDone:
-		if di.Error != ErrEmptySendAmount.Error() && di.TxHash == nil {
+		if di.Error != ErrEmptySendAmount.Error() && di.Txid == "" {
 			return errors.New("Txid missing")
 		}
 		// Don't check SkySent == 0, it is possible to have StatusDone with
@@ -131,7 +129,7 @@ func (di DepositInfo) ValidateForStatus() error {
 		return checkWaitSend()
 
 	case StatusWaitConfirm:
-		if di.TxHash == nil {
+		if di.Txid == "" {
 			return errors.New("Txid missing")
 		}
 

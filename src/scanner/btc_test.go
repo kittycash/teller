@@ -368,33 +368,33 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 	// NOTE: This data is fake, but the addresses and Txid are valid
 	unprocessedDeposits := []Deposit{
 		{
-			CoinType:  CoinTypeBTC,
-			Address:   "1LEkderht5M5yWj82M87bEd4XDBsczLkp9",
-			Value:     1e8,
-			Height:    23505,
-			Tx:        "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
-			N:         1,
-			Processed: false,
+			CoinType: CoinTypeBTC,
+			Address:  "1LEkderht5M5yWj82M87bEd4XDBsczLkp9",
+			Value:    1e8,
+			Height:   23505,
+			Tx:       "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
+			N:        1,
+			Status:   DepositNotProcessed,
 		},
 		{
-			CoinType:  CoinTypeBTC,
-			Address:   "16Lr3Zhjjb7KxeDxGPUrh3DMo29Lstif7j",
-			Value:     10e8,
-			Height:    23505,
-			Tx:        "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
-			N:         1,
-			Processed: false,
+			CoinType: CoinTypeBTC,
+			Address:  "16Lr3Zhjjb7KxeDxGPUrh3DMo29Lstif7j",
+			Value:    10e8,
+			Height:   23505,
+			Tx:       "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
+			N:        1,
+			Status:   DepositNotProcessed,
 		},
 	}
 
 	processedDeposit := Deposit{
-		CoinType:  CoinTypeBTC,
-		Address:   "1GH9ukgyetEJoWQFwUUeLcWQ8UgVgipLKb",
-		Value:     100e8,
-		Height:    23517,
-		Tx:        "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
-		N:         1,
-		Processed: true,
+		CoinType: CoinTypeBTC,
+		Address:  "1GH9ukgyetEJoWQFwUUeLcWQ8UgVgipLKb",
+		Value:    100e8,
+		Height:   23517,
+		Tx:       "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
+		N:        1,
+		Status:   DepositAccepted,
 	}
 
 	err := scr.Base.GetStorer().(*Store).db.Update(func(tx *bolt.Tx) error {

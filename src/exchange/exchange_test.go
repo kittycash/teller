@@ -11,12 +11,13 @@ import (
 	logrus_test "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/skycoin/src/cipher"
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/scanner"
 	"github.com/kittycash/teller/src/sender"
 	"github.com/kittycash/teller/src/util/testutil"
 	"github.com/kittycash/wallet/src/iko"
+
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 type dummySender struct {
@@ -67,12 +68,12 @@ func (s *dummySender) BroadcastTransaction(tx *iko.Transaction) *sender.Broadcas
 	}
 }
 
-func (s *dummySender) IsTxConfirmed(txid *iko.TxHash) *sender.ConfirmResponse {
+func (s *dummySender) IsTxConfirmed(txid string) *sender.ConfirmResponse {
 	s.RLock()
 	defer s.RUnlock()
 
 	req := sender.ConfirmRequest{
-		TxHash: txid,
+		Txid: txid,
 	}
 
 	if s.confirmErr != nil {
@@ -82,7 +83,7 @@ func (s *dummySender) IsTxConfirmed(txid *iko.TxHash) *sender.ConfirmResponse {
 		}
 	}
 
-	confirmed := s.txidConfirmMap[txid.Hex()]
+	confirmed := s.txidConfirmMap[txid]
 	return &sender.ConfirmResponse{
 		Confirmed: confirmed,
 		Req:       req,

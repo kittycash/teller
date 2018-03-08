@@ -52,9 +52,9 @@ func fixSkyAddrWhitespace(db *bolt.DB) error {
 	// BindAddressBkt
 	// DepositInfoBkt
 
-	if err := fixSkyDepositSeqsIndexBkt(db); err != nil {
-		return err
-	}
+	//if err := fixSkyDepositSeqsIndexBkt(db); err != nil {
+	//	return err
+	//}
 
 	if err := fixBindAddressBkt(db); err != nil {
 		return err
@@ -142,8 +142,8 @@ func fixDepositInfoBkt(db *bolt.DB) error {
 				return err
 			}
 
-			if _, err := cipher.DecodeBase58Address(dpi.SkyAddress); err != nil {
-				fmt.Printf("Found invalid sky address \"%s\" in DepositInfoBkt: %v\n", dpi.SkyAddress, err)
+			if _, err := cipher.DecodeBase58Address(dpi.OwnerAddress); err != nil {
+				fmt.Printf("Found invalid sky address \"%s\" in DepositInfoBkt: %v\n", dpi.OwnerAddress, err)
 				invalidBtcTxs = append(invalidBtcTxs, k)
 			}
 
@@ -167,12 +167,12 @@ func fixDepositInfoBkt(db *bolt.DB) error {
 				return err
 			}
 
-			fixedAddr, err := fixAddress(dpi.SkyAddress)
+			fixedAddr, err := fixAddress(dpi.OwnerAddress)
 			if err != nil {
 				return err
 			}
 
-			dpi.SkyAddress = fixedAddr
+			dpi.OwnerAddress = fixedAddr
 
 			b, err := json.Marshal(&dpi)
 			if err != nil {
@@ -188,57 +188,58 @@ func fixDepositInfoBkt(db *bolt.DB) error {
 	})
 }
 
-func fixSkyDepositSeqsIndexBkt(db *bolt.DB) error {
-	// Check SkyDepositSeqsIndexBkt
-	// It maps a sky address to btc addresses, so check the key
-
-	var invalidSkyAddrs [][]byte
-	if err := db.View(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket(exchange.SkyDepositSeqsIndexBkt)
-		if bkt == nil {
-			return errors.New("SkyDepositSeqsIndexBkt not found in db")
-		}
-
-		return bkt.ForEach(func(k, v []byte) error {
-			skyAddr := string(k)
-			if _, err := cipher.DecodeBase58Address(skyAddr); err != nil {
-				fmt.Printf("Found invalid sky address \"%s\" in SkyDepositSeqsIndexBkt: %v\n", skyAddr, err)
-				invalidSkyAddrs = append(invalidSkyAddrs, k)
-			}
-
-			return nil
-		})
-	}); err != nil {
-		return err
-	}
-
-	fmt.Printf("Repairing SkyDepositSeqsIndexBkt, %d invalid addresses\n", len(invalidSkyAddrs))
-	return db.Update(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket(exchange.SkyDepositSeqsIndexBkt)
-		for _, a := range invalidSkyAddrs {
-
-			v := bkt.Get(a)
-			if v == nil {
-				return fmt.Errorf("value unexpectedly missing for key \"%s\"", string(a))
-			}
-
-			fixedAddr, err := fixAddress(string(a))
-			if err != nil {
-				return err
-			}
-
-			if err := bkt.Put([]byte(fixedAddr), v); err != nil {
-				return err
-			}
-
-			if err := bkt.Delete(a); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
+//
+//func fixSkyDepositSeqsIndexBkt(db *bolt.DB) error {
+//	// Check SkyDepositSeqsIndexBkt
+//	// It maps a sky address to btc addresses, so check the key
+//
+//	var invalidSkyAddrs [][]byte
+//	if err := db.View(func(tx *bolt.Tx) error {
+//		bkt := tx.Bucket(exchange.SkyDepositSeqsIndexBkt)
+//		if bkt == nil {
+//			return errors.New("SkyDepositSeqsIndexBkt not found in db")
+//		}
+//
+//		return bkt.ForEach(func(k, v []byte) error {
+//			skyAddr := string(k)
+//			if _, err := cipher.DecodeBase58Address(skyAddr); err != nil {
+//				fmt.Printf("Found invalid sky address \"%s\" in SkyDepositSeqsIndexBkt: %v\n", skyAddr, err)
+//				invalidSkyAddrs = append(invalidSkyAddrs, k)
+//			}
+//
+//			return nil
+//		})
+//	}); err != nil {
+//		return err
+//	}
+//
+//	fmt.Printf("Repairing SkyDepositSeqsIndexBkt, %d invalid addresses\n", len(invalidSkyAddrs))
+//	return db.Update(func(tx *bolt.Tx) error {
+//		bkt := tx.Bucket(exchange.SkyDepositSeqsIndexBkt)
+//		for _, a := range invalidSkyAddrs {
+//
+//			v := bkt.Get(a)
+//			if v == nil {
+//				return fmt.Errorf("value unexpectedly missing for key \"%s\"", string(a))
+//			}
+//
+//			fixedAddr, err := fixAddress(string(a))
+//			if err != nil {
+//				return err
+//			}
+//
+//			if err := bkt.Put([]byte(fixedAddr), v); err != nil {
+//				return err
+//			}
+//
+//			if err := bkt.Delete(a); err != nil {
+//				return err
+//			}
+//		}
+//
+//		return nil
+//	})
+//}
 
 func main() {
 	flag.Parse()

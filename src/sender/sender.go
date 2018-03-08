@@ -17,7 +17,7 @@ var (
 type Sender interface {
 	CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error)
 	BroadcastTransaction(*iko.Transaction) *BroadcastTxResponse
-	IsTxConfirmed(*iko.TxHash) *ConfirmResponse
+	IsTxConfirmed(Txid string) *ConfirmResponse
 	Balance() int
 }
 
@@ -54,13 +54,13 @@ func (s *RetrySender) BroadcastTransaction(tx *iko.Transaction) *BroadcastTxResp
 }
 
 // IsTxConfirmed checks if tx is confirmed
-func (s *RetrySender) IsTxConfirmed(txid *iko.TxHash) *ConfirmResponse {
+func (s *RetrySender) IsTxConfirmed(txid string) *ConfirmResponse {
 	rspC := make(chan *ConfirmResponse, 1)
 
 	go func() {
 		s.s.confirmChan <- ConfirmRequest{
-			TxHash: txid,
-			RspC:   rspC,
+			Txid: txid,
+			RspC: rspC,
 		}
 	}()
 

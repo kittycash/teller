@@ -50,11 +50,10 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 		um.Users[u.Address] = &u
 	}
 	return &Agent{
-		log:   log.WithField("prefix", "teller.agent"),
-		cfg:   cfg,
-		store: store,
+		log:                log.WithField("prefix", "teller.agent"),
+		cfg:                cfg,
+		store:              store,
 		ReservationManager: &rm,
-		UserManager: &um,
+		UserManager:        &um,
 	}
 }
-

@@ -32,28 +32,6 @@ func testNewBtcAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addr
 	return btca, addresses
 }
 
-func testNewEthAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addrs, []string) {
-	addresses := []string{
-		"0x12bc2e62a27f8940c373ef1edef7b615aeb045f3",
-		"0x3e0081aa902a21ff8db61b29c05889a3d1b34f45",
-		"0x50e0c87ef74079650ae6cd4ee895f8e1b02714cf",
-	}
-
-	etha, err := NewAddrs(log, db, addresses, "test_bucket_eth")
-	require.NoError(t, err)
-
-	addrMap := make(map[string]struct{}, len(etha.addresses))
-	for _, a := range etha.addresses {
-		addrMap[a] = struct{}{}
-	}
-
-	for _, addr := range addresses {
-		_, ok := addrMap[addr]
-		require.True(t, ok)
-	}
-	return etha, addresses
-}
-
 func testNewSkyAddrManager(t *testing.T, db *bolt.DB, log *logrus.Logger) (*Addrs, []string) {
 	addresses := []string{
 		"2Ag9SGMnVyaxzQbGL1EUfau2Fx1ztfNZsWt",
@@ -120,7 +98,6 @@ func TestNewAddress(t *testing.T) {
 	log, _ = testutil.NewLogger(t)
 	btca1, err := NewAddrs(log, db, addresses, "test_bucket")
 	require.NoError(t, err)
-
 	for _, a := range btca1.addresses {
 		require.NotEqual(t, a, addr)
 	}
@@ -179,8 +156,7 @@ func TestNewSkyAddress(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, used)
 
-	log, _ = testutil.NewLogger(t)
-	skya1, err := NewAddrs(log, db, addresses, "test_bucket_skya")
+	skya1, err := NewAddrs(log, db, addresses, "test_bucket_sky")
 	require.NoError(t, err)
 
 	for _, a := range skya1.addresses {
@@ -192,7 +168,7 @@ func TestNewSkyAddress(t *testing.T) {
 	require.True(t, used)
 
 	// run out all addresses
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		_, err = skya1.NewAddress()
 		require.NoError(t, err)
 	}
@@ -209,16 +185,16 @@ func TestAddrManager(t *testing.T) {
 
 	//create AddrGenertor
 	btcGen, btcAddresses := testNewBtcAddrManager(t, db, log)
-	ethGen, ethAddresses := testNewEthAddrManager(t, db, log)
+	skyGen, skyAddresses := testNewSkyAddrManager(t, db, log)
 
 	typeB := "TOKENB"
-	typeE := "TOKENE"
+	typeS := "TOKENS"
 
 	addrManager := NewAddrManager()
 	//add generator to addrManager
 	err := addrManager.PushGenerator(btcGen, typeB)
 	require.NoError(t, err)
-	err = addrManager.PushGenerator(ethGen, typeE)
+	err = addrManager.PushGenerator(skyGen, typeS)
 	require.NoError(t, err)
 
 	addrMap := make(map[string]struct{})
@@ -239,19 +215,19 @@ func TestAddrManager(t *testing.T) {
 
 	//set typeE address into map
 	addrMap = make(map[string]struct{})
-	for _, a := range ethAddresses {
+	for _, a := range skyAddresses {
 		addrMap[a] = struct{}{}
 	}
 
 	// run out all addresses of typeE
-	for i := 0; i < len(ethAddresses); i++ {
-		addr, err := addrManager.NewAddress(typeE)
+	for i := 0; i < len(skyAddresses); i++ {
+		addr, err := addrManager.NewAddress(typeS)
 		require.NoError(t, err)
 		// check if the addr still in the address pool
 		_, ok := addrMap[addr]
 		require.True(t, ok)
 	}
-	_, err = addrManager.NewAddress(typeE)
+	_, err = addrManager.NewAddress(typeS)
 	require.Equal(t, ErrDepositAddressEmpty, err)
 
 	//check not exists cointype

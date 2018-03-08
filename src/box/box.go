@@ -5,7 +5,7 @@ type KittyID uint64
 // Box represents a unique kitty box
 type Box struct {
 	//KittyID is the unique id for the kitty
-	KittyID   string    `json:"kitty_id"`
+	KittyID string `json:"kitty_id"`
 	// BoxDetail contains metadata for the box
 	BoxDetail BoxDetail `json:"box_detail"`
 }

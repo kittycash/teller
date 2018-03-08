@@ -150,7 +150,7 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 		return err
 	}
 	var reservation *Reservation
-	for i  := range user.Reservations {
+	for i := range user.Reservations {
 		if user.Reservations[i].Box.KittyID == kittyID {
 			reservation = &user.Reservations[i]
 			// make the reservation available

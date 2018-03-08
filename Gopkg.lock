@@ -206,7 +206,6 @@
 [[projects]]
   name = "github.com/skycoin/skycoin"
   packages = [
-    "src/api/cli",
     "src/api/webrpc",
     "src/cipher",
     "src/cipher/base58",
@@ -302,12 +301,6 @@
   revision = "a80c09da9c7bd84aaf622507fd339a9281b8acd1"
 
 [[projects]]
-  name = "github.com/urfave/cli"
-  packages = ["."]
-  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
-  version = "v1.20.0"
-
-[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = [
@@ -365,6 +358,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c06e9120103e7ae096bb5fb942abd498ad3ce88d6df34615657571c3ed02c58c"
+  inputs-digest = "37aeece87077a8c20c55811d02c5a30d7f94903c204fc109b209ebef89fd8c4a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -43,7 +43,7 @@ func TestNewSkyAddrsContainsInvalid(t *testing.T) {
 		"2dQkJ2YMEaXoeCcuJnqLiWJEh7xnLx1btqF",
 		"qboYMqpEJVcRbLkvXXL9dZKinGt5AYYB6j",
 		"3W7xXw33PBe7YyAJ9TGoc9MKw5uaMMYots",
-		"3BhjEkZ5rFaXqQZr44msr8nYRPiV7tcLQs"
+		"bad"
     ]
 }`
 

@@ -42,7 +42,7 @@ type Runner interface {
 // Exchanger provides APIs to interact with the exchange service
 type Exchanger interface {
 	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
-	GetDepositStatuses(skyAddr string) ([]DepositStatus, error)
+	GetDepositStatuses(kittyID string) ([]DepositStatus, error)
 	GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDetail, error)
 	IsBound(kittyAddr string) bool
 	GetDepositStats() (*DepositStats, error)
@@ -219,7 +219,7 @@ func (e *Exchange) GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDet
 			Status:         di.Status.String(),
 			KittyID:        di.KittyID,
 			DepositAddress: di.DepositAddress,
-			Txid:           di.TxHash.Hex(),
+			Txid:           di.Txid,
 			CoinType:       di.CoinType,
 			OwnerAddress:   di.OwnerAddress,
 		})
@@ -244,7 +244,7 @@ func (e *Exchange) GetDepositStats() (*DepositStats, error) {
 	return &DepositStats{
 		TotalBTCReceived: tbr,
 		TotalSKYReceived: tsr,
-		TotalBoxesSent: tbs,
+		TotalBoxesSent:   tbs,
 	}, nil
 }
 

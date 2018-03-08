@@ -22,6 +22,7 @@ import (
 	"github.com/kittycash/teller/src/exchange"
 	"github.com/kittycash/teller/src/util/httputil"
 	"github.com/kittycash/teller/src/util/logger"
+
 	"github.com/skycoin/skycoin/src/cipher"
 )
 

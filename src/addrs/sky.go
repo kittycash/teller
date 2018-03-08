@@ -8,6 +8,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
+
 	"github.com/skycoin/skycoin/src/cipher"
 )
 

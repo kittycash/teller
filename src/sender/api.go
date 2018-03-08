@@ -10,6 +10,7 @@ import (
 	kittyClient "github.com/kittycash/wallet/src/http"
 	"github.com/kittycash/wallet/src/iko"
 	"github.com/kittycash/wallet/src/wallet"
+
 	"github.com/skycoin/skycoin/src/cipher"
 )
 

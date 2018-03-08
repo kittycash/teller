@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kittycash/wallet/src/iko"
+
 	"github.com/skycoin/skycoin/src/cipher"
+
 	"github.com/skycoin/teller/src/util/testutil"
 )
 

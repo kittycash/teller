@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/wallet/src/iko"
+
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 const (
@@ -40,13 +42,13 @@ type BroadcastTxResponse struct {
 
 // ConfirmRequest tx confirmation request struct
 type ConfirmRequest struct {
-	TxHash *iko.TxHash
-	RspC   chan *ConfirmResponse
+	Txid string
+	RspC chan *ConfirmResponse
 }
 
 // Verify verifies the request parameters
 func (r ConfirmRequest) Verify() error {
-	if r.TxHash == nil {
+	if r.Txid == "" {
 		return errors.New("Txid empty")
 	}
 
@@ -74,7 +76,7 @@ type SendService struct {
 type KittyClient interface {
 	CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error)
 	InjectTransaction(tx *iko.Transaction) (string, error)
-	GetTransaction(txhash iko.TxHash) (*iko.Transaction, error)
+	GetTransaction(iko.TxHash) (*iko.Transaction, error)
 	Balance() int
 }
 
@@ -146,7 +148,13 @@ func (s *SendService) Confirm(req ConfirmRequest) (*ConfirmResponse, error) {
 		return nil, err
 	}
 
-	_, err := s.KittyClient.GetTransaction(*req.TxHash)
+	txHash, err := cipher.SHA256FromHex(req.Txid)
+	if err != nil {
+		log.WithError(err).Error("unable to convert txid")
+		return nil, err
+	}
+
+	_, err = s.KittyClient.GetTransaction(iko.TxHash(txHash))
 	if err != nil {
 		log.WithError(err).Error("KittyClient.GetTransaction failed")
 		return nil, err
@@ -175,7 +183,13 @@ func (s *SendService) ConfirmRetry(req ConfirmRequest) (*ConfirmResponse, error)
 	// Most likely reason for GetTransaction() to fail is because the skyd node
 	// is unavailable.
 	for {
-		_, err := s.KittyClient.GetTransaction(*req.TxHash)
+		txHash, err := cipher.SHA256FromHex(req.Txid)
+		if err != nil {
+			log.WithError(err).Error("unable to convert txid")
+			return nil, err
+		}
+
+		_, err = s.KittyClient.GetTransaction(iko.TxHash(txHash))
 		if err != nil {
 			log.WithError(err).Error("KittyClient.GetTransaction failed, trying again...")
 
