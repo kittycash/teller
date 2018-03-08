@@ -17,14 +17,14 @@ import (
 type dummyBtcAddrMgr struct {
 	Num uint64
 }
-type dummyEthAddrMgr struct {
+type dummySkyAddrMgr struct {
 	Num uint64
 }
 
 func (db *dummyBtcAddrMgr) Remaining() uint64 {
 	return db.Num
 }
-func (db *dummyEthAddrMgr) Remaining() uint64 {
+func (db *dummySkyAddrMgr) Remaining() uint64 {
 	return db.Num
 }
 
@@ -39,7 +39,7 @@ func (dps dummyDepositStatusGetter) GetDepositStatusDetail(flt exchange.DepositF
 			ds = append(ds, exchange.DepositStatusDetail{
 				Seq:            dpi.Seq,
 				DepositAddress: dpi.DepositAddress,
-				SkyAddress:     dpi.SkyAddress,
+				OwnerAddress:   dpi.OwnerAddress,
 				Status:         dpi.Status.String(),
 				UpdatedAt:      dpi.UpdatedAt,
 				Txid:           dpi.Txid,
@@ -52,16 +52,27 @@ func (dps dummyDepositStatusGetter) GetDepositStatusDetail(flt exchange.DepositF
 
 func (dps dummyDepositStatusGetter) GetDepositStats() (*exchange.DepositStats, error) {
 	var totalBTCReceived int64
-	var totalSKYSent int64
+	var totalSKYReceived int64
+	var totalBoxesSent int64
 	for _, dpi := range dps.dpis {
 		if dpi.CoinType == scanner.CoinTypeBTC {
 			totalBTCReceived += dpi.DepositValue
 		}
-		totalSKYSent += int64(dpi.SkySent)
+
+		if dpi.CoinType == scanner.CoinTypeSKY {
+			totalSKYReceived += dpi.DepositValue
+		}
+
+		// TotalBoxesSent = no. of deposits with status == done
+		if dpi.Status == exchange.StatusDone {
+			totalBoxesSent++
+		}
+
 	}
 	return &exchange.DepositStats{
 		TotalBTCReceived: totalBTCReceived,
-		TotalSKYSent:     totalSKYSent,
+		TotalSKYReceived: totalSKYReceived,
+		TotalBoxesSent:   totalBoxesSent,
 	}, nil
 }
 
@@ -77,27 +88,27 @@ func TestRunMonitor(t *testing.T) {
 	dpis := []exchange.DepositInfo{
 		{
 			DepositAddress: "b1",
-			SkyAddress:     "s1",
+			OwnerAddress:   "s1",
 			Status:         exchange.StatusWaitDeposit,
 		},
 		{
 			DepositAddress: "b2",
-			SkyAddress:     "s2",
+			OwnerAddress:   "s2",
 			Status:         exchange.StatusWaitSend,
 		},
 		{
 			DepositAddress: "b3",
-			SkyAddress:     "s3",
+			OwnerAddress:   "s3",
 			Status:         exchange.StatusWaitConfirm,
 		},
 		{
 			DepositAddress: "b4",
-			SkyAddress:     "s4",
+			OwnerAddress:   "s4",
 			Status:         exchange.StatusDone,
 		},
 		{
 			DepositAddress: "b5",
-			SkyAddress:     "s6",
+			OwnerAddress:   "s6",
 			Status:         exchange.StatusDone,
 		},
 	}
@@ -109,7 +120,7 @@ func TestRunMonitor(t *testing.T) {
 	}
 
 	log, _ := testutil.NewLogger(t)
-	m := New(log, cfg, &dummyBtcAddrMgr{10}, &dummyEthAddrMgr{10}, &dummyDps, &dummyScanAddrs{})
+	m := New(log, cfg, &dummyBtcAddrMgr{10}, &dummySkyAddrMgr{10}, &dummyDps, &dummyScanAddrs{})
 
 	time.AfterFunc(1*time.Second, func() {
 		rsp, err := http.Get(fmt.Sprintf("http://localhost:7908/api/address"))
@@ -179,7 +190,7 @@ func TestRunMonitor(t *testing.T) {
 							UpdatedAt:      s.UpdatedAt,
 							Status:         exchange.NewStatusFromStr(s.Status),
 							DepositAddress: s.DepositAddress,
-							SkyAddress:     s.SkyAddress,
+							OwnerAddress:   s.OwnerAddress,
 							Txid:           s.Txid,
 						})
 					}

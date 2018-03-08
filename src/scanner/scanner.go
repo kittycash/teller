@@ -5,6 +5,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+
 	"github.com/skycoin/skycoin/src/visor"
 )
 
@@ -66,14 +67,13 @@ func NewDepositNote(dv Deposit) DepositNote {
 
 // Deposit struct
 type Deposit struct {
-	CoinType  string        // coin type
-	Address   string        // deposit address
-	Value     int64         // deposit amount. For BTC, measured in satoshis.
-	Height    int64         // the block height
-	Tx        string        // the transaction id
-	N         uint32        // the index of vout in the tx [BTC]
-	Status    DepositStatus // whether this was received by the exchange and saved
-	Processed bool
+	CoinType string        // coin type
+	Address  string        // deposit address
+	Value    int64         // deposit amount. For BTC, measured in satoshis.
+	Height   int64         // the block height
+	Tx       string        // the transaction id
+	N        uint32        // the index of vout in the tx [BTC]
+	Status   DepositStatus // whether this was received by the exchange and saved
 }
 
 // ID returns $tx:$n formatted ID string

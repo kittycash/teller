@@ -221,7 +221,7 @@ func (s *Store) SetDepositProcessed(dvKey string) error {
 			return errors.New("CRITICAL ERROR: dv.ID() != dvKey")
 		}
 
-		dv.Processed = true
+		dv.Status = DepositAccepted
 
 		return dbutil.PutBucketValue(tx, DepositBkt, dv.ID(), dv)
 	})
@@ -238,7 +238,7 @@ func (s *Store) GetUnprocessedDeposits() ([]Deposit, error) {
 				return err
 			}
 
-			if !dv.Processed {
+			if dv.Status == DepositNotProcessed {
 				dvs = append(dvs, dv)
 			}
 

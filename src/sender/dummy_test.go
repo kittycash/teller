@@ -1,12 +1,12 @@
 package sender
 
-
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kittycash/wallet/src/iko"
+
 	"github.com/skycoin/teller/src/util/testutil"
 )
 
@@ -38,16 +38,14 @@ func TestDummySender(t *testing.T) {
 	require.Error(t, bRsp.Err)
 	require.Empty(t, bRsp.Txid)
 
-	txHash := txn.Hash()
-	cRsp := s.IsTxConfirmed(&txHash)
+	cRsp := s.IsTxConfirmed(txn.Hash().Hex())
 	require.NotNil(t, cRsp)
 	require.NoError(t, cRsp.Err)
 	require.False(t, cRsp.Confirmed)
 
 	s.broadcastTxns[txn.Hash().Hex()].Confirmed = true
 
-	txHash = txn.Hash()
-	cRsp = s.IsTxConfirmed(&txHash)
+	cRsp = s.IsTxConfirmed(txn.Hash().Hex())
 	require.NotNil(t, cRsp)
 	require.NoError(t, cRsp.Err)
 	require.True(t, cRsp.Confirmed)

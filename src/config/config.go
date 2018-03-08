@@ -14,7 +14,6 @@ import (
 
 	"github.com/skycoin/skycoin/src/visor"
 
-	"github.com/kittycash/teller/src/util/mathutil"
 	"github.com/kittycash/wallet/src/wallet"
 )
 
@@ -232,11 +231,11 @@ func (c Config) Validate() error {
 	if _, err := os.Stat(c.BtcAddresses); os.IsNotExist(err) {
 		oops("btc_addresses file does not exist")
 	}
-	if c.EthAddresses == "" {
-		oops("eth_addresses missing")
+	if c.SkyAddresses == "" {
+		oops("sky_addresses missing")
 	}
-	if _, err := os.Stat(c.EthAddresses); os.IsNotExist(err) {
-		oops("eth_addresses file does not exist")
+	if _, err := os.Stat(c.SkyAddresses); os.IsNotExist(err) {
+		oops("sky file does not exist")
 	}
 
 	if !c.Dummy.Sender {

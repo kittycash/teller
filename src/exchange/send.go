@@ -265,7 +265,7 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 
 	case StatusWaitConfirm:
 		// Wait for confirmation
-		rsp := s.sender.IsTxConfirmed(di.TxHash)
+		rsp := s.sender.IsTxConfirmed(di.Txid)
 
 		if rsp == nil {
 			log.WithError(ErrNoResponse).Warn("Sender closed")

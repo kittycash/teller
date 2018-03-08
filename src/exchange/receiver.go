@@ -151,7 +151,6 @@ func (r *Receive) Deposits() <-chan DepositInfo {
 func (r *Receive) saveIncomingDeposit(dv scanner.Deposit) (DepositInfo, error) {
 	log := r.log.WithField("deposit", dv)
 
-
 	di, err := r.store.GetOrCreateDepositInfo(dv)
 	if err != nil {
 		log.WithError(err).Error("GetOrCreateDepositInfo failed")

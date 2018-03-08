@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/kittycash/wallet/src/iko"
+
 	"github.com/skycoin/skycoin/src/cipher"
+
 	"github.com/skycoin/teller/src/util/httputil"
 )
 
@@ -136,20 +138,20 @@ func (s *DummySender) BroadcastTransaction(txn *iko.Transaction) *BroadcastTxRes
 }
 
 // IsTxConfirmed reports whether a fake skycoin transaction has been confirmed
-func (s *DummySender) IsTxConfirmed(txid *iko.TxHash) *ConfirmResponse {
+func (s *DummySender) IsTxConfirmed(txid string) *ConfirmResponse {
 	s.log.WithField("txid", txid).Info("IsTxConfirmed")
 
 	s.RLock()
 	defer s.RUnlock()
 
-	txn := s.broadcastTxns[txid.Hex()]
+	txn := s.broadcastTxns[txid]
 
 	return &ConfirmResponse{
 		Confirmed: txn != nil && txn.Confirmed,
 		Err:       nil,
 		Req: ConfirmRequest{
-			TxHash: txid,
-			RspC:   make(chan *ConfirmResponse, 1),
+			Txid: txid,
+			RspC: make(chan *ConfirmResponse, 1),
 		},
 	}
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//@TODO add authentication checks
+//TODO add authentication checks
 
 // StatusResponse http response for /api/status
 type StatusResponse struct {
@@ -92,7 +92,7 @@ type ConfigResponse struct {
 // URI: /api/config
 func ConfigHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//@TODO (therealssj): implement
+		//TODO (therealssj): implement
 	}
 }
 
@@ -122,7 +122,7 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		errorMsg := ""
 		err := s.exchanger.Status()
 
-		// If the status is an RPCError, the most likely cause is that the
+		// If the status is an APIError, the most likely cause is that the
 		// wallet has an insufficient balance (other causes could be a temporary
 		// application error, or a bug in the skycoin node).
 		// Errors that are not RPCErrors are transient and common, such as
@@ -133,7 +133,7 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		default:
 		}
 
-		// Get the wallet balance, 
+		// Get the wallet balance,
 		kitties := s.exchanger.Balance()
 
 		resp := ExchangeStatusResponse{
@@ -196,23 +196,23 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		}
 		defer func(log logrus.FieldLogger) {
 			if err := r.Body.Close(); err != nil {
-				log.WithError(err).Warn("Failed to closed request body")
+				log.WithError(err).Warn("failed to closed request body")
 			}
 		}(log)
 
 		// check that required parameters are given
 		if reserveReq.UserAddress == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing user address"))
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("missing user address"))
 			return
 		}
 
 		if reserveReq.KittyID == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing kitty id"))
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("missing kitty id"))
 			return
 		}
 
 		if reserveReq.CoinType == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing cointype"))
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("missing cointype"))
 			return
 		}
 
@@ -259,7 +259,6 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 	}
 }
 
-//@TODO do I need this? return more information?
 // CancelReservationResponse represents response of a cancel reservation request
 type CancelReservationResponse struct {
 	UserAddress string `json:"user_address"`
@@ -310,7 +309,7 @@ func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 
 		// cancel the reservation
 		err := s.service.agentManager.CancelReservation(
-		cancelReservationReq.UserAddress, cancelReservationReq.KittyID)
+			cancelReservationReq.UserAddress, cancelReservationReq.KittyID)
 
 		if err != nil {
 			log.WithError(err).Error("s.agent.CancelReservation failed")
