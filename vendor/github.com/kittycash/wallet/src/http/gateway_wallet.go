@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+
 	"github.com/kittycash/wallet/src/wallet"
 )
 
@@ -60,4 +61,3 @@ func newWallet(g *wallet.Manager) HandlerFunc {
 		return nil
 	}
 }
-

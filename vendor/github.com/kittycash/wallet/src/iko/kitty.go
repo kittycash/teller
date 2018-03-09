@@ -1,10 +1,11 @@
 package iko
 
 import (
-	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/cipher/encoder"
 	"sort"
 	"strconv"
+
+	"github.com/skycoin/skycoin/src/cipher"
+	"github.com/skycoin/skycoin/src/cipher/encoder"
 )
 
 type KittyID uint64

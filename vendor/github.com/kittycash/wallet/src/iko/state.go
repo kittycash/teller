@@ -2,8 +2,9 @@ package iko
 
 import (
 	"fmt"
-	"github.com/skycoin/skycoin/src/cipher"
 	"sync"
+
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 // StateDB records the state of the blockchain.

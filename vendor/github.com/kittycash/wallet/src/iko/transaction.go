@@ -3,10 +3,11 @@ package iko
 import (
 	"errors"
 	"fmt"
-	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/cipher/encoder"
 	"log"
 	"time"
+
+	"github.com/skycoin/skycoin/src/cipher"
+	"github.com/skycoin/skycoin/src/cipher/encoder"
 )
 
 type TxHash cipher.SHA256

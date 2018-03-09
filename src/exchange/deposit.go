@@ -17,6 +17,8 @@ const (
 	StatusWaitDeposit Status = iota
 	// StatusWaitSend deposit is ready for send
 	StatusWaitSend
+	// StatusWaitPartial partial deposit of a kitty box payment amount
+	StatusWaitPartial
 	// StatusWaitConfirm kitty sent, but not confirmed yet
 	StatusWaitConfirm
 	// StatusDone kitty sent and confirmed
@@ -29,7 +31,7 @@ const (
 
 var statusString = []string{
 	StatusWaitDeposit: "waiting_deposit",
-	StatusWaitSend:    "waiting_send",
+	StatusWaitPartial: "waiting_partial",
 	StatusWaitConfirm: "waiting_confirm",
 	StatusDone:        "done",
 	StatusUnknown:     "unknown",
@@ -45,8 +47,8 @@ func NewStatusFromStr(st string) Status {
 	switch st {
 	case statusString[StatusWaitDeposit]:
 		return StatusWaitDeposit
-	case statusString[StatusWaitSend]:
-		return StatusWaitSend
+	case statusString[StatusWaitPartial]:
+		return StatusWaitPartial
 	case statusString[StatusWaitConfirm]:
 		return StatusWaitConfirm
 	case statusString[StatusDone]:
@@ -71,17 +73,27 @@ type DepositInfo struct {
 	UpdatedAt      int64
 	Status         Status
 	CoinType       string
-	KittyID        string
+	KittyID        string // used to fetch total payment amount
 	DepositAddress string
-	OwnerAddress   string
-	DepositID      string
-	Txid           string // txhash
-	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC or droplets for skycoin)
-	Error          string // An error that occurred during processing
+	//TODO (therealssj): do I need this?
+	OwnerAddress string // address of the user who reserved the box
+	DepositID    string
+	Txid         string // txhash
+	DepositValue int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC or droplets for skycoin)
+	Error        string // An error that occurred during processing
 	// The original Deposit is saved for the records, in case there is a mistake.
 	// Do not use this data directly.  All necessary data is copied to the top level
 	// of DepositInfo (e.g. DepositID, DepositAddress, DepositValue, CoinType).
 	Deposit scanner.Deposit
+}
+
+type DepositTrack struct {
+	// AmountDeposited is the amount deposited so far
+	AmountDeposited int64
+	// KittyID is id of kitty inside the reservation box
+	KittyID string
+	// AmountRequired is the total amount to be deposited
+	AmountRequired int64
 }
 
 // DepositStats records overall statistics about deposits
@@ -136,6 +148,9 @@ func (di DepositInfo) ValidateForStatus() error {
 		return checkWaitSend()
 
 	case StatusWaitSend:
+		return checkWaitSend()
+
+	case StatusWaitPartial:
 		return checkWaitSend()
 
 	case StatusWaitDecide:

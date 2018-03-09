@@ -3,11 +3,12 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kittycash/wallet/src/iko"
-	"github.com/kittycash/wallet/src/wallet"
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/kittycash/wallet/src/iko"
+	"github.com/kittycash/wallet/src/wallet"
 )
 
 type Gateway struct {

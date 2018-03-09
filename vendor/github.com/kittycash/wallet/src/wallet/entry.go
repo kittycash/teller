@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"errors"
+
 	"github.com/skycoin/skycoin/src/cipher"
 )
 

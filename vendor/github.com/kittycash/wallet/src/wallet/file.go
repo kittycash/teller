@@ -2,13 +2,14 @@ package wallet
 
 import (
 	"fmt"
-	"gopkg.in/sirupsen/logrus.v1"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/sirupsen/logrus.v1"
 )
 
 // This holds the root directory.

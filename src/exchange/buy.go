@@ -85,7 +85,12 @@ func (p *Buy) runUpdateStatus() {
 				continue
 			}
 
-			p.deposits <- updatedDeposit
+			//TODO (therealssj): make this resumable, needs to happen in a single transaction
+			p.checkDepositProgress(&updatedDeposit)
+
+			if updatedDeposit.Status == StatusWaitSend {
+				p.deposits <- updatedDeposit
+			}
 		}
 	}
 }
@@ -104,19 +109,27 @@ func (p *Buy) Deposits() <-chan DepositInfo {
 	return p.deposits
 }
 
-// updateStatus sets the deposit's status to StatusWaitSend.
-// The deposit will be picked up by the Send component which will send the coins.
-// The fixed exchange rate is already set by the receiver when it creates the deposit, so no other action is needed.
-// TODO -- set the rate here instead?
+// updateStatus sets the deposit's status to StatusWaitPartial.
 func (p *Buy) updateStatus(di DepositInfo) (DepositInfo, error) {
 	updatedDi, err := p.store.UpdateDepositInfo(di.DepositID, func(di DepositInfo) DepositInfo {
-		di.Status = StatusWaitSend
+		di.Status = StatusWaitPartial
 		return di
 	})
 	if err != nil {
-		p.log.WithError(err).Error("UpdateDepositInfo set StatusWaitSend failed")
+		p.log.WithError(err).Error("UpdateDepositInfo set StatusWaitPartial failed")
 		return di, err
 	}
 
 	return updatedDi, nil
+}
+
+// checkDepositProgress checks the progress towards the full payment of the box
+func (p *Buy) checkDepositProgress(di *DepositInfo) {
+	dt, _ := p.store.getDepositTrack(di.DepositAddress)
+
+	if dt.AmountDeposited+di.DepositValue >= dt.AmountRequired {
+		dt.AmountDeposited += di.DepositValue
+		p.store.updateDepositTrack(di.DepositAddress, dt)
+		di.Status = StatusWaitSend
+	}
 }

@@ -2,13 +2,14 @@ package wallet
 
 import (
 	"errors"
-	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/cipher/encoder"
-	"github.com/skycoin/skycoin/src/util/file"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/skycoin/skycoin/src/cipher"
+	"github.com/skycoin/skycoin/src/cipher/encoder"
+	"github.com/skycoin/skycoin/src/util/file"
 )
 
 type (
