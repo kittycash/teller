@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kittycash/teller/src/exchange"
-	"github.com/kittycash/teller/src/util/testutil"
 	"errors"
+
+	"github.com/kittycash/teller/src/exchange"
 	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 type fakeExchanger struct {
@@ -125,7 +126,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 			nil,
 		},
 		//@TODO (therealssj): add more tests when wallet is implemented properly
-		
+
 	}
 
 	for _, tc := range tt {

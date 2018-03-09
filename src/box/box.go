@@ -17,7 +17,7 @@ type BoxDetail struct {
 	// Open defines whether the box was opened or not
 	Open bool `json:"open"`
 	// Price of box in BTC satoshis
-	PriceBTC uint64 `json:"price_btc"`
+	PriceBTC int64 `json:"price_btc"`
 	// Price of box in SKY droplets
-	PriceSKY uint64 `json:"price_sky"`
+	PriceSKY int64 `json:"price_sky"`
 }

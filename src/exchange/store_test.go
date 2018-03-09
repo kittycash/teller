@@ -90,6 +90,14 @@ func (m *MockStore) GetDepositStats() (int64, int64, int64, error) {
 	return args.Get(0).(int64), args.Get(1).(int64), args.Get(2).(int64), args.Error(2)
 }
 
+func (m *MockStore ) getDepositTrack(depositAddr string) (DepositTrack, error) {
+	return DepositTrack{}, nil
+}
+
+func (m * MockStore) updateDepositTrack(depositAddr string, dt DepositTrack) error {
+	return nil
+}
+
 func newTestStore(t *testing.T) (*Store, func()) {
 	db, shutdown := testutil.PrepareDB(t)
 
@@ -110,7 +118,7 @@ func TestStoreNewStore(t *testing.T) {
 		require.NotNil(t, tx.Bucket(MustGetBindAddressBkt(scanner.CoinTypeBTC)))
 		require.NotNil(t, tx.Bucket(MustGetBindAddressBkt(scanner.CoinTypeSKY)))
 		//@TODO (therealssj): Update buckets
-		require.NotNil(t, tx.Bucket(BtcTxsBkt))
+		require.NotNil(t, tx.Bucket(TxsBkt))
 		return nil
 	})
 	require.NoError(t, err)

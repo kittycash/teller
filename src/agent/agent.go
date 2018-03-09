@@ -5,7 +5,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//@TODO implement limits
+//TODO (therealssj): implement limits
+//TODO (therealssj): improve data strucutres
 
 const (
 	// Max number of reservations a user can do
@@ -22,6 +23,7 @@ type AgentManager interface {
 	MakeReservation(userAddress string, kittyID string, coinType string) error
 	CancelReservation(userAddress, kittyID string) error
 	GetReservations(status string) ([]Reservation, error)
+	GetReservation(kittyID string) (*Reservation, error)
 	GetKittyDepositAddress(kittyID string) (string, error)
 }
 

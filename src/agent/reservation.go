@@ -8,7 +8,7 @@ import (
 	"github.com/kittycash/teller/src/box"
 )
 
-// @TODO handle reservation expiry
+//TODO (therealssj): handle reservation expiry
 
 var (
 	ErrMaxReservationsExceeded = errors.New("User has exceeded the max number of reservations")
@@ -21,9 +21,12 @@ var (
 
 const (
 	// Available reservation
+	// newly added reversation or when a reservation expires is set to available
 	Available = "available"
 	// Reserved reservation
 	Reserved = "reserved"
+	// Delivered means the box of this reservation has been sent to a user
+	Delivered = "delievered"
 )
 
 // Reservation is a reservation instance for a kitty box
@@ -137,6 +140,20 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		return err
 	}
 
+	u, err := a.UserManager.GetUser(userAddr)
+	if err != nil {
+		a.log.WithError(err).Error("UserManager.GetUser failed")
+		return err
+	}
+
+	// update the reservation
+	if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
+		a.log.WithError(err).Error("CancelReservation failed for %s", reservation.Box.KittyID)
+		return err
+	}
+	// update the user
+	a.store.UpdateUser(u)
+
 	return nil
 }
 
@@ -182,13 +199,20 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 // status: Reservation status, available, reserved or all.
 func (a *Agent) GetReservations(status string) ([]Reservation, error) {
 	switch status {
-	case Available, Reserved:
+	case Available, Reserved, Delivered:
 		return a.ReservationManager.GetReservationsByStatus(status), nil
 	case "all":
 		return a.ReservationManager.GetReservations(), nil
 	default:
 		return nil, ErrInvalidReservationType
 	}
+}
+
+// GetReservation gets reversation from the kitty id
+// Args:
+// status: kittyID
+func (a *Agent) GetReservation(kittyID string) (*Reservation, error) {
+	return a.store.GetReservationFromKittyID(kittyID)
 }
 
 // GetKittyDepositAddress gets deposit address of kitty box reservation

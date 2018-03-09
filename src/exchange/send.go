@@ -12,8 +12,6 @@ import (
 	"github.com/kittycash/wallet/src/iko"
 )
 
-//@TODO needs to be refactored for sending boxes
-
 // Sender is a component for sending boxes
 type Sender interface {
 	Status() error
@@ -31,7 +29,7 @@ type Send struct {
 	log         logrus.FieldLogger
 	cfg         config.BoxExchanger
 	processor   Processor
-	sender      sender.Sender // sender provides APIs for sending skycoin
+	sender      sender.Sender // sender provides APIs for sending boxes
 	store       Storer        // deposit info storage
 	quit        chan struct{}
 	done        chan struct{}

@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	// DepositBkt maps a BTC transaction to a Deposit
+	// DepositBkt maps a deposit transaction to a Deposit
 	DepositBkt = []byte("deposit_value")
 
 	// deposit address bucket
@@ -318,7 +318,6 @@ func (s *Store) scanBlock(block *CommonBlock, coinType string) ([]Deposit, error
 	return dvs, nil
 }
 
-// ScanBTCBlock scan the given block and returns the next block hash or error
 func scanSpecifiedBlock(block *CommonBlock, coinType string, depositAddrs []string) ([]Deposit, error) {
 	var dv []Deposit
 
@@ -340,6 +339,7 @@ func scanSpecifiedBlock(block *CommonBlock, coinType string, depositAddrs []stri
 						Height:   block.Height,
 						Tx:       tx.Txid,
 						N:        v.N,
+						Status:   DepositNotProcessed,
 					})
 				}
 			}

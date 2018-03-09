@@ -10,19 +10,23 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
 
+	"github.com/kittycash/teller/src/agent"
 	"github.com/kittycash/teller/src/scanner"
 	"github.com/kittycash/teller/src/util/dbutil"
 )
 
 var (
-	// DepositInfoBkt maps a BTC transaction to a DepositInfo
+	// DepositInfoBkt maps a deposit transaction to a DepositInfo
 	DepositInfoBkt = []byte("deposit_info")
 
-	// BtcTxsBkt maps a BTC address to multiple BTC transactions
-	BtcTxsBkt = []byte("btc_txs")
+	// TxsBkt maps a deposit transaction to a DepositInfo
+	TxsBkt = []byte("deposit_txs")
 
 	// KittyDepositSeqsIndexBkt maps a kitty id to its current deposit address
 	KittyDepositSeqsIndexBkt = []byte("sky_deposit_seqs_index")
+
+	//DepositTrackBkt keeps track of amount paid for a reservation box
+	DepositTrackBkt = []byte("deposit_track")
 
 	// ErrAddressAlreadyBound is returned if a payment address has already been bound to a kittyID
 	ErrAddressAlreadyBound = errors.New("Address already bound to a kitty ID")
@@ -78,6 +82,9 @@ type Storer interface {
 	UpdateDepositInfoCallback(string, func(DepositInfo) DepositInfo, func(DepositInfo) error) (DepositInfo, error)
 	GetKittyBindAddress(string) (*BoundAddress, error)
 	GetDepositStats() (int64, int64, int64, error)
+	//TODO (therealssj): these need to be refactored
+	getDepositTrack(depositAddr string) (DepositTrack, error)
+	updateDepositTrack(depositAddr string, dt DepositTrack) error
 }
 
 // Store storage for exchange
@@ -111,8 +118,12 @@ func NewStore(log logrus.FieldLogger, db *bolt.DB) (*Store, error) {
 			return dbutil.NewCreateBucketFailedErr(KittyDepositSeqsIndexBkt, err)
 		}
 
-		if _, err := tx.CreateBucketIfNotExists(BtcTxsBkt); err != nil {
-			return dbutil.NewCreateBucketFailedErr(BtcTxsBkt, err)
+		if _, err := tx.CreateBucketIfNotExists(TxsBkt); err != nil {
+			return dbutil.NewCreateBucketFailedErr(TxsBkt, err)
+		}
+
+		if _, err := tx.CreateBucketIfNotExists(DepositTrackBkt); err != nil {
+			return dbutil.NewCreateBucketFailedErr(DepositTrackBkt, err)
 		}
 
 		return nil
@@ -141,8 +152,7 @@ func (s *Store) GetBindAddress(depositAddr, coinType string) (*BoundAddress, err
 	return boundAddr, nil
 }
 
-// getBindAddressTx returns bound kitty id of given bitcoin address.
-// If no kitty id is found, returns empty string and nil error.
+// getBindAddressTx returns bound info of given deposit address.
 func (s *Store) getBindAddressTx(tx *bolt.Tx, depositAddr, coinType string) (*BoundAddress, error) {
 	bindBktFullName, err := GetBindAddressBkt(coinType)
 	if err != nil {
@@ -161,7 +171,7 @@ func (s *Store) getBindAddressTx(tx *bolt.Tx, depositAddr, coinType string) (*Bo
 	}
 }
 
-// BindAddress binds a skycoin address to a deposit address
+// BindAddress binds a deposit address to bound info
 func (s *Store) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error) {
 	log := s.log.WithField("kittyID", kittyID)
 	log = log.WithField("depositAddr", depositAddr)
@@ -206,7 +216,6 @@ func (s *Store) GetOrCreateDepositInfo(dv scanner.Deposit) (DepositInfo, error) 
 	var finalDepositInfo DepositInfo
 	if err := s.db.Update(func(tx *bolt.Tx) error {
 		di, err := s.getDepositInfoTx(tx, dv.ID())
-
 		switch err.(type) {
 		case nil:
 			finalDepositInfo = di
@@ -227,20 +236,23 @@ func (s *Store) GetOrCreateDepositInfo(dv scanner.Deposit) (DepositInfo, error) 
 				return err
 			}
 
+			err = s.createDepositTrackTx(tx, boundAddr)
+			if err != nil {
+				err = fmt.Errorf("CreateDepositTrack failed: %v", err)
+				log.WithError(err).Error(err)
+				return err
+			}
+
 			log = log.WithField("boundAddr", boundAddr)
 
-			// Sanity check the boundAddr data against the deposit value data
+			// Integrity check of the boundAddr data against the deposit value data
 			if boundAddr.CoinType != dv.CoinType {
 				err := fmt.Errorf("boundAddr.CoinType != dv.CoinType")
 				log.WithError(err).Error()
 				return err
 			}
-			if boundAddr.Address != dv.Address {
-				err := fmt.Errorf("boundAddr.Address != dv.Address")
-				log.WithError(err).Error()
-				return err
-			}
 
+			//TODO (therealssj): add owner address?
 			di := DepositInfo{
 				CoinType:       dv.CoinType,
 				DepositAddress: dv.Address,
@@ -320,9 +332,9 @@ func (s *Store) addDepositInfoTx(tx *bolt.Tx, di DepositInfo) (DepositInfo, erro
 		return di, err
 	}
 
-	// update btc_txids bucket
+	// update txs bucket
 	var txs []string
-	if err := dbutil.GetBucketObject(tx, BtcTxsBkt, updatedDi.DepositAddress, &txs); err != nil {
+	if err := dbutil.GetBucketObject(tx, TxsBkt, updatedDi.DepositAddress, &txs); err != nil {
 		switch err.(type) {
 		case dbutil.ObjectNotExistErr:
 		default:
@@ -331,7 +343,7 @@ func (s *Store) addDepositInfoTx(tx *bolt.Tx, di DepositInfo) (DepositInfo, erro
 	}
 
 	txs = append(txs, updatedDi.DepositID)
-	if err := dbutil.PutBucketValue(tx, BtcTxsBkt, updatedDi.DepositAddress, txs); err != nil {
+	if err := dbutil.PutBucketValue(tx, TxsBkt, updatedDi.DepositAddress, txs); err != nil {
 		return di, err
 	}
 
@@ -339,12 +351,12 @@ func (s *Store) addDepositInfoTx(tx *bolt.Tx, di DepositInfo) (DepositInfo, erro
 }
 
 // getDepositInfo returns depsoit info of given address
-func (s *Store) getDepositInfo(btcTx string) (DepositInfo, error) {
+func (s *Store) getDepositInfo(Txid string) (DepositInfo, error) {
 	var di DepositInfo
 
 	err := s.db.View(func(tx *bolt.Tx) error {
 		var err error
-		di, err = s.getDepositInfoTx(tx, btcTx)
+		di, err = s.getDepositInfoTx(tx, Txid)
 		return err
 	})
 
@@ -352,14 +364,75 @@ func (s *Store) getDepositInfo(btcTx string) (DepositInfo, error) {
 }
 
 // getDepositInfoTx returns depsoit info of given address
-func (s *Store) getDepositInfoTx(tx *bolt.Tx, btcTx string) (DepositInfo, error) {
+func (s *Store) getDepositInfoTx(tx *bolt.Tx, Txid string) (DepositInfo, error) {
 	var dpi DepositInfo
 
-	if err := dbutil.GetBucketObject(tx, DepositInfoBkt, btcTx, &dpi); err != nil {
+	if err := dbutil.GetBucketObject(tx, DepositInfoBkt, Txid, &dpi); err != nil {
 		return DepositInfo{}, err
 	}
 
 	return dpi, nil
+}
+
+// createDepositTrackTx creates a deposit track
+func (s *Store) createDepositTrackTx(tx *bolt.Tx, boundInfo *BoundAddress) error {
+	// check if the dpt with DepositAddr already exist
+	if hasKey, err := dbutil.BucketHasKey(tx, DepositTrackBkt, boundInfo.Address); err != nil {
+		return err
+	} else if hasKey {
+		return nil
+	}
+
+	price, err := s.getKittyPriceTx(tx, boundInfo.KittyID, boundInfo.CoinType)
+	if err != nil {
+		return err
+	}
+
+	dt := DepositTrack{
+		KittyID:         boundInfo.KittyID,
+		AmountDeposited: 0,
+		AmountRequired:  price,
+	}
+	if err := dbutil.PutBucketValue(tx, DepositTrackBkt, boundInfo.Address, dt); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) updateDepositTrack(depositAddr string, dt DepositTrack) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return s.updateDepositTrackTx(tx, depositAddr, dt)
+	})
+}
+
+// updateDepositTrackTx updates a deposit track
+func (s *Store) updateDepositTrackTx(tx *bolt.Tx, depositAddr string, dt DepositTrack) error {
+	return dbutil.PutBucketValue(tx, DepositTrackBkt, depositAddr, dt)
+}
+
+// getDepositTrack returns depsoit track of given address
+func (s *Store) getDepositTrack(depositAddr string) (DepositTrack, error) {
+	var dt DepositTrack
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		dt, err = s.getDepositTrackTx(tx, depositAddr)
+		return err
+	})
+
+	return dt, err
+}
+
+// getDepositTrackTx returns depsoit track of given address
+func (s *Store) getDepositTrackTx(tx *bolt.Tx, depositAddr string) (DepositTrack, error) {
+	var dpt DepositTrack
+
+	if err := dbutil.GetBucketObject(tx, DepositTrackBkt, depositAddr, &dpt); err != nil {
+		return DepositTrack{}, err
+	}
+
+	return dpt, nil
 }
 
 // GetDepositInfoArray returns filtered deposit info
@@ -386,13 +459,45 @@ func (s *Store) GetDepositInfoArray(flt DepositFilter) ([]DepositInfo, error) {
 	return dpis, nil
 }
 
-// GetDepositInfoOfSkyAddress returns all deposit info that are bound
-// to the given skycoin address
-func (s *Store) GetDepositInfoOfKittyID(skyAddr string) ([]DepositInfo, error) {
+// GetDepositInfoOfKittyID returns all deposit info that are bound
+// to the given kittyID
+func (s *Store) GetDepositInfoOfKittyID(kittyID string) ([]DepositInfo, error) {
 	var dpis []DepositInfo
 
 	if err := s.db.View(func(tx *bolt.Tx) error {
-		//@TODO
+		boundAddr, err := s.GetKittyBindAddress(kittyID)
+		if err != nil {
+			return err
+		}
+
+		var txns []string
+		if err := dbutil.GetBucketObject(tx, TxsBkt, boundAddr.Address, &txns); err != nil {
+			switch err.(type) {
+			case dbutil.ObjectNotExistErr:
+			default:
+				return err
+			}
+		}
+
+		if len(txns) == 0 {
+			dpis = append(dpis, DepositInfo{
+				Status:         StatusWaitDeposit,
+				DepositAddress: boundAddr.Address,
+				KittyID:        kittyID,
+				UpdatedAt:      time.Now().UTC().Unix(),
+				CoinType:       boundAddr.CoinType,
+			})
+		}
+
+		for _, txn := range txns {
+			var dpi DepositInfo
+			if err := dbutil.GetBucketObject(tx, DepositInfoBkt, txn, &dpi); err != nil {
+				return err
+			}
+
+			dpis = append(dpis, dpi)
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err
@@ -413,35 +518,36 @@ func (s *Store) GetDepositInfoOfKittyID(skyAddr string) ([]DepositInfo, error) {
 
 // UpdateDepositInfo updates deposit info. The update func takes a DepositInfo
 // and returns a modified copy of it.
-func (s *Store) UpdateDepositInfo(btcTx string, update func(DepositInfo) DepositInfo) (DepositInfo, error) {
-	return s.UpdateDepositInfoCallback(btcTx, update, func(di DepositInfo) error { return nil })
+func (s *Store) UpdateDepositInfo(Tx string, update func(DepositInfo) DepositInfo) (DepositInfo, error) {
+	return s.UpdateDepositInfoCallback(Tx, update, func(di DepositInfo) error { return nil })
 }
 
 // UpdateDepositInfoCallback updates deposit info. The update func takes a DepositInfo
 // and returns a modified copy of it.  After updating the DepositInfo, it calls callback,
 // inside of the transaction.  If the callback returns an error, the DepositInfo update
 // is rolled back.
-func (s *Store) UpdateDepositInfoCallback(btcTx string, update func(DepositInfo) DepositInfo, callback func(DepositInfo) error) (DepositInfo, error) {
-	log := s.log.WithField("btcTx", btcTx)
+func (s *Store) UpdateDepositInfoCallback(Txid string, update func(DepositInfo) DepositInfo, callback func(DepositInfo) error) (DepositInfo, error) {
+	log := s.log.WithField("Txid:", Txid)
 
 	var dpi DepositInfo
 	if err := s.db.Update(func(tx *bolt.Tx) error {
-		if err := dbutil.GetBucketObject(tx, DepositInfoBkt, btcTx, &dpi); err != nil {
+		if err := dbutil.GetBucketObject(tx, DepositInfoBkt, Txid, &dpi); err != nil {
 			return err
 		}
 
 		log = log.WithField("depositInfo", dpi)
 
-		if dpi.DepositID != btcTx {
-			log.Error("DepositInfo.DepositID does not match btcTx")
-			err := fmt.Errorf("DepositInfo %+v saved under different key %s", dpi, btcTx)
+		if dpi.DepositID != Txid {
+			log.Error("DepositInfo.DepositID does not match Txid")
+			err := fmt.Errorf("DepositInfo %+v saved under different key %s", dpi, Txid)
 			return err
 		}
 
 		dpi = update(dpi)
+
 		dpi.UpdatedAt = time.Now().UTC().Unix()
 
-		if err := dbutil.PutBucketValue(tx, DepositInfoBkt, btcTx, dpi); err != nil {
+		if err := dbutil.PutBucketValue(tx, DepositInfoBkt, Txid, dpi); err != nil {
 			return err
 		}
 
@@ -468,23 +574,21 @@ func (s *Store) GetKittyBindAddress(kittyID string) (*BoundAddress, error) {
 	return &boundAddr, nil
 }
 
-//// getSkyBindAddressesTx returns the addresses of the given sky address bound
-//func (s *Store) getSkyBindAddressesTx(tx *bolt.Tx, skyAddr string) (BoundAddress, error) {
-//	var addrs []BoundAddress
-//	if err := dbutil.GetBucketObject(tx, SkyDepositSeqsIndexBkt, skyAddr, &addrs); err != nil {
-//		switch err.(type) {
-//		case dbutil.ObjectNotExistErr:
-//		default:
-//			return nil, err
-//		}
-//	}
-//
-//	if len(addrs) == 0 {
-//		addrs = nil
-//	}
-//
-//	return addrs, nil
-//}
+func (s *Store) getKittyPriceTx(tx *bolt.Tx, kittyID string, coinType string) (int64, error) {
+	var r agent.Reservation
+	err := dbutil.GetBucketObject(tx, agent.ReservationsKittyBkt, kittyID, &r)
+	if err != nil {
+		return 0, err
+	}
+
+	if coinType == "SKY" {
+		return r.Box.BoxDetail.PriceSKY, nil
+	} else if coinType == "BTC" {
+		return r.Box.BoxDetail.PriceBTC, nil
+	}
+
+	return 0, agent.ErrInvalidCoinType
+}
 
 // GetDepositStats returns BTC and SKY received and boxes sent
 func (s *Store) GetDepositStats() (int64, int64, int64, error) {
