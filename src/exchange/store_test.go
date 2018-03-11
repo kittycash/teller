@@ -90,11 +90,11 @@ func (m *MockStore) GetDepositStats() (int64, int64, int64, error) {
 	return args.Get(0).(int64), args.Get(1).(int64), args.Get(2).(int64), args.Error(2)
 }
 
-func (m *MockStore ) getDepositTrack(depositAddr string) (DepositTrack, error) {
+func (m *MockStore) getDepositTrack(depositAddr string) (DepositTrack, error) {
 	return DepositTrack{}, nil
 }
 
-func (m * MockStore) updateDepositTrack(depositAddr string, dt DepositTrack) error {
+func (m *MockStore) updateDepositTrack(depositAddr string, dt DepositTrack) error {
 	return nil
 }
 
