@@ -29,10 +29,14 @@ func newDummyKittyClient() *dummyKittyClient {
 }
 
 func (ds *dummyKittyClient) InjectTransaction(tx *iko.Transaction) (string, error) {
+	ds.Lock()
+	defer ds.Unlock()
 	return ds.broadcastTxTxid, ds.broadcastTxErr
 }
 
 func (ds *dummyKittyClient) CreateTransaction(destAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
+	ds.Lock()
+	defer ds.Unlock()
 	if ds.createTxErr != nil {
 		return nil, ds.createTxErr
 	}
