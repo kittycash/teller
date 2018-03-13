@@ -79,12 +79,14 @@ type Storer interface {
 	GetDepositInfoArray(DepositFilter) ([]DepositInfo, error)
 	GetDepositInfoOfKittyID(string) ([]DepositInfo, error)
 	UpdateDepositInfo(string, func(DepositInfo) DepositInfo) (DepositInfo, error)
-	UpdateDepositInfoCallback(string, func(DepositInfo) DepositInfo, func(DepositInfo) error) (DepositInfo, error)
+	UpdateDepositInfoCallback(string, func(DepositInfo) DepositInfo, func(DepositInfo, *bolt.Tx) error) (DepositInfo, error)
 	GetKittyBindAddress(string) (*BoundAddress, error)
 	GetDepositStats() (int64, int64, int64, error)
 	//TODO (therealssj): these need to be refactored
 	getDepositTrack(depositAddr string) (DepositTrack, error)
+	getDepositTrackTx(tx *bolt.Tx, depositAddr string) (DepositTrack, error)
 	updateDepositTrack(depositAddr string, dt DepositTrack) error
+	updateDepositTrackTx(tx *bolt.Tx, depositAddr string, dt DepositTrack) error
 }
 
 // Store storage for exchange
@@ -519,14 +521,14 @@ func (s *Store) GetDepositInfoOfKittyID(kittyID string) ([]DepositInfo, error) {
 // UpdateDepositInfo updates deposit info. The update func takes a DepositInfo
 // and returns a modified copy of it.
 func (s *Store) UpdateDepositInfo(Tx string, update func(DepositInfo) DepositInfo) (DepositInfo, error) {
-	return s.UpdateDepositInfoCallback(Tx, update, func(di DepositInfo) error { return nil })
+	return s.UpdateDepositInfoCallback(Tx, update, func(di DepositInfo, tx *bolt.Tx) error { return nil })
 }
 
 // UpdateDepositInfoCallback updates deposit info. The update func takes a DepositInfo
 // and returns a modified copy of it.  After updating the DepositInfo, it calls callback,
 // inside of the transaction.  If the callback returns an error, the DepositInfo update
 // is rolled back.
-func (s *Store) UpdateDepositInfoCallback(Txid string, update func(DepositInfo) DepositInfo, callback func(DepositInfo) error) (DepositInfo, error) {
+func (s *Store) UpdateDepositInfoCallback(Txid string, update func(DepositInfo) DepositInfo, callback func(DepositInfo, *bolt.Tx) error) (DepositInfo, error) {
 	log := s.log.WithField("Txid:", Txid)
 
 	var dpi DepositInfo
@@ -551,7 +553,7 @@ func (s *Store) UpdateDepositInfoCallback(Txid string, update func(DepositInfo) 
 			return err
 		}
 
-		return callback(dpi)
+		return callback(dpi, tx)
 
 	}); err != nil {
 		return DepositInfo{}, err

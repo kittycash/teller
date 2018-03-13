@@ -128,7 +128,7 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		// Errors that are not RPCErrors are transient and common, such as
 		// exchange.ErrNotConfirmed, which will happen frequently and temporarily.
 		switch err.(type) {
-		case sender.APIError:
+		case sender.RPCError:
 			errorMsg = err.Error()
 		default:
 		}
@@ -169,7 +169,7 @@ type reservationRequest struct {
 // Accept: application/json
 // URI: /api/reservation/reserve
 // Args:
-//    {"user_address": "<user_address>", "kitty_id": "<kitty_id>", "coin_type": "<coin_type>"}
+//    {"user_address": "<user_address>", "kitty_id": "<kitty_id>", "coin_type": "<coin_type>", "verification_code": "<verification_code>"}
 func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -387,6 +387,7 @@ type GetDepositAddressResponse struct {
 // Accept: application/json
 // URI: /api/reservation/getdepositaddress?useraddr=?&kittyid=?
 // Args:
+//    userAddr: user address
 //    kittyID: kitty ID of required kitty box
 func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -11,8 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"errors"
-	"time"
-
 	"github.com/kittycash/wallet/src/iko"
 
 	"github.com/skycoin/skycoin/src/cipher"
@@ -46,7 +44,7 @@ type DummySender struct {
 	secKey        cipher.SecKey
 	log           logrus.FieldLogger
 	sync.RWMutex
-	kittyID iko.KittyID
+	kittyID       iko.KittyID
 }
 
 // NewDummySender creates a DummySender
@@ -64,19 +62,13 @@ func NewDummySender(log logrus.FieldLogger) *DummySender {
 // CreateTransaction creates a fake kitty cash transaction
 func (s *DummySender) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
 	if kittyID != s.kittyID {
-		return nil, NewAPIError(errors.New("Kitty not found"))
+		return nil, NewRPCError(errors.New("Kitty not found"))
 	}
 
 	s.log.WithFields(logrus.Fields{
 		"kitty_id": kittyID,
 		"addr":     recvAddr,
 	}).Info("CreateTransaction")
-
-	fromAddr, err := cipher.DecodeBase58Address("2fzr9thfdgHCWe8Hp9btr3nNEVTaAmkDk7")
-	if err != nil {
-		s.log.WithError(err).Error("CreateTransaction called with invalid from address")
-		return nil, err
-	}
 
 	destAddr, err := cipher.DecodeBase58Address(recvAddr)
 	if err != nil {
@@ -91,12 +83,9 @@ func (s *DummySender) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*
 	}
 
 	txn := &iko.Transaction{
-		Prev:    iko.TxHash(randomPrev),
-		Seq:     10,
-		TS:      time.Now().Unix(),
 		KittyID: kittyID,
-		From:    fromAddr,
-		To:      destAddr,
+		In:      iko.TxHash(randomPrev),
+		Out:     destAddr,
 	}
 
 	txn.Sig = txn.Sign(s.secKey)
@@ -157,9 +146,8 @@ func (s *DummySender) IsTxConfirmed(txid string) *ConfirmResponse {
 }
 
 // Balance returns the remaining balance
-func (s *DummySender) Balance() int {
-
-	return 1
+func (s *DummySender) Balance(address string) (int, error) {
+	return 1, nil
 }
 
 // HTTP interface
@@ -207,7 +195,7 @@ func (s *DummySender) getBroadcastedTransactionsHandler(w http.ResponseWriter, r
 	//
 	//txnsRsp := make([]dummyTransactionResponse, 0, len(txns))
 	//for _, txn := range txns {
-	//	outs := make([]dummyTransactionResponseOutput, 0, len(txn.Out))
+	//	outs := make([]dummyTransactionResponseOutput, 0, len(txn))
 	//	for _, o := range txn.Out {
 	//		coins, err := droplet.ToString(o.Coins)
 	//		if err != nil {
@@ -228,7 +216,7 @@ func (s *DummySender) getBroadcastedTransactionsHandler(w http.ResponseWriter, r
 	//		Outputs:   outs,
 	//	})
 	//}
-
+	//
 	//if err := httputil.JSONResponse(w, txnsRsp); err != nil {
 	//	s.log.WithError(err).Error(err)
 	//}

@@ -13,8 +13,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/skycoin/skycoin/src/visor"
-
-	"github.com/kittycash/wallet/src/wallet"
 )
 
 // Config represents the configuration root
@@ -47,6 +45,8 @@ type Config struct {
 	Web Web `mapstructure:"web"`
 
 	AdminPanel AdminPanel `mapstructure:"admin_panel"`
+
+	SecKey string `mapstructure:"secret_key"`
 
 	Dummy Dummy `mapstructure:"dummy"`
 }
@@ -93,10 +93,8 @@ type SkyScanner struct {
 type BoxExchanger struct {
 	// Number of decimal places to truncate SKY to
 	MaxDecimals int `mapstructure:"max_decimals"`
-	// Path of hot kitty wallet file on disk
-	Wallet string `mapstructure:"wallet"`
 	// Password of kitty wallet
-	WalletPassword string `mapstructure:"wallet_password"`
+	GenesisKey string `mapstructure:"genesis_key"`
 	// How long to wait before rechecking transaction confirmations
 	TxConfirmationCheckWait time.Duration `mapstructure:"tx_confirmation_check_wait"`
 	// Allow sending of boxes (deposits will still be received and recorded)
@@ -128,30 +126,6 @@ func (c BoxExchanger) validate() []error {
 		errs = append(errs, fmt.Errorf("sky_exchanger.max_decimals is larger than visor.MaxDropletPrecision=%d", visor.MaxDropletPrecision))
 	}
 
-	return errs
-}
-
-func (c BoxExchanger) validateWallet() []error {
-	var errs []error
-
-	if c.Wallet == "" {
-		errs = append(errs, errors.New("box_exchanger.wallet missing"))
-	}
-
-	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("box_exchanger.wallet file %s does not exist", c.Wallet))
-	}
-
-	f, err := os.Open(wallet.LabelPath(c.Wallet))
-	if err != nil {
-		errs = append(errs, err)
-		return errs
-	}
-
-	_, err = wallet.LoadFloatingWallet(f, c.Wallet, c.WalletPassword)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("box_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
-	}
 	return errs
 }
 
@@ -287,13 +261,13 @@ func (c Config) Validate() error {
 	for _, err := range exchangeErrs {
 		oops(err.Error())
 	}
-
-	if !c.Dummy.Sender {
-		exchangeErrs := c.BoxExchanger.validateWallet()
-		for _, err := range exchangeErrs {
-			oops(err.Error())
-		}
-	}
+	//
+	//if !c.Dummy.Sender {
+	//	exchangeErrs := c.BoxExchanger.validateWallet()
+	//	for _, err := range exchangeErrs {
+	//		oops(err.Error())
+	//	}
+	//}
 
 	if err := c.Web.Validate(); err != nil {
 		oops(err.Error())
@@ -318,13 +292,11 @@ func setDefaults() {
 
 	// SkyRPC
 	viper.SetDefault("sky_rpc.address", "127.0.0.1:6430")
+	viper.SetDefault("sky_rpc.enabled", true)
 
 	// BtcRPC
 	viper.SetDefault("btc_rpc.server", "127.0.0.1:8334")
 	viper.SetDefault("btc_rpc.enabled", true)
-
-	// EthRPC
-	viper.SetDefault("eth_rpc.enabled", false)
 
 	// BtcScanner
 	viper.SetDefault("btc_scanner.scan_period", time.Second*20)
