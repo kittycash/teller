@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/gops/agent"
+	"github.com/skycoin/skycoin/src/cipher"
 
 	"github.com/boltdb/bolt"
 	btcrpcclient "github.com/btcsuite/btcd/rpcclient"
@@ -136,8 +137,8 @@ func run() error {
 
 	if cfg.Profile {
 		// Start gops agent, for profiling
-		if err := agent.Listen(&agent.Options{
-			NoShutdownCleanup: true,
+		if err := agent.Listen(agent.Options{
+			ShutdownCleanup: true,
 		}); err != nil {
 			log.WithError(err).Error("Start profile agent failed")
 			return err
@@ -244,16 +245,17 @@ func run() error {
 
 	if cfg.Dummy.Sender {
 		log.Info("kittyd disabled, running dummy sender")
-		sendAPI = sender.NewDummySender(log)
-		sendAPI.(*sender.DummySender).BindHandlers(dummyMux)
+		//sendAPI = sender.NewDummySender(log)
+		//sendAPI.(*sender.DummySender).BindHandlers(dummyMux)
 	} else {
-		kittyClient, err := sender.NewAPI(cfg.BoxExchanger.Wallet, cfg.BoxExchanger.WalletPassword, cfg.KittyClientAddr)
+		kittyClient, err := sender.NewRPC(cfg.KittyClientAddr)
 		if err != nil {
 			log.WithError(err).Error("sender.NewAPI failed")
 			return err
 		}
 
-		sendService = sender.NewService(log, kittyClient)
+		secKey := cipher.MustSecKeyFromHex(cfg.SecKey)
+		sendService = sender.NewService(log, kittyClient, secKey)
 
 		background("sendService.Run", errC, sendService.Run)
 

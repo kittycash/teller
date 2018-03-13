@@ -10,6 +10,7 @@ import (
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/sender"
 	"github.com/kittycash/wallet/src/iko"
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 // Sender is a component for sending boxes
@@ -213,7 +214,7 @@ func (s *Send) processWaitSendDeposit(di DepositInfo) error {
 		s.setStatus(err)
 
 		switch err.(type) {
-		case sender.APIError:
+		case sender.RPCError:
 			// Treat kitty client errors as temporary.
 			// Some API errors are hypothetically permanent,
 			// but most likely it is an insufficient wallet balance or
@@ -313,7 +314,7 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 	}
 }
 
-func (s *Send) createTransaction(di DepositInfo) (*iko.Transaction, error) {
+func (s *Send) createTransaction(di DepositInfo, key cipher.SecKey) (*iko.Transaction, error) {
 	log := s.log.WithField("deposit", di)
 
 	// This should never occur, the DepositInfo is saved with a DepositAddress
@@ -339,7 +340,7 @@ func (s *Send) createTransaction(di DepositInfo) (*iko.Transaction, error) {
 		return nil, err
 	}
 
-	tx, err := s.sender.CreateTransaction(di.OwnerAddress, kID)
+	tx, err := s.sender.CreateTransaction(di.OwnerAddress, kID, key)
 	if err != nil {
 		log.WithError(err).Error("sender.CreateTransaction failed")
 		return nil, err
@@ -386,8 +387,8 @@ func (s *Send) broadcastTransaction(tx *iko.Transaction) (*sender.BroadcastTxRes
 }
 
 // Balance is broken right now
-func (s *Send) Balance() int {
-	return s.sender.Balance()
+func (s *Send) Balance(addr string) (int,error) {
+	return s.sender.Balance(addr)
 }
 
 func (s *Send) setStatus(err error) {

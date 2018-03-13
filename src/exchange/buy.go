@@ -6,6 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/config"
+	"github.com/boltdb/bolt"
+	"github.com/kittycash/teller/src/util/dbutil"
 )
 
 // Processor is a component that processes deposits from a Receiver and sends them to a Sender
@@ -85,9 +87,6 @@ func (p *Buy) runUpdateStatus() {
 				continue
 			}
 
-			//TODO (therealssj): make this resumable, needs to happen in a single transaction
-			p.checkDepositProgress(&updatedDeposit)
-
 			if updatedDeposit.Status == StatusWaitSend {
 				p.deposits <- updatedDeposit
 			}
@@ -111,9 +110,24 @@ func (p *Buy) Deposits() <-chan DepositInfo {
 
 // updateStatus sets the deposit's status to StatusWaitPartial.
 func (p *Buy) updateStatus(di DepositInfo) (DepositInfo, error) {
-	updatedDi, err := p.store.UpdateDepositInfo(di.DepositID, func(di DepositInfo) DepositInfo {
+	updatedDi, err := p.store.UpdateDepositInfoCallback(di.DepositID, func(di DepositInfo) DepositInfo {
 		di.Status = StatusWaitPartial
 		return di
+	}, func(info DepositInfo, tx *bolt.Tx) error {
+		dt, err := p.store.getDepositTrackTx(tx, di.DepositAddress)
+		if err != nil {
+			return err
+		}
+		if dt.AmountDeposited+di.DepositValue >= dt.AmountRequired {
+			dt.AmountDeposited += di.DepositValue
+			p.store.updateDepositTrackTx(tx, di.DepositAddress, dt)
+			di.Status = StatusWaitSend
+			if err := dbutil.PutBucketValue(tx, DepositInfoBkt, di.Txid, di); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 	if err != nil {
 		p.log.WithError(err).Error("UpdateDepositInfo set StatusWaitPartial failed")
@@ -121,15 +135,4 @@ func (p *Buy) updateStatus(di DepositInfo) (DepositInfo, error) {
 	}
 
 	return updatedDi, nil
-}
-
-// checkDepositProgress checks the progress towards the full payment of the box
-func (p *Buy) checkDepositProgress(di *DepositInfo) {
-	dt, _ := p.store.getDepositTrack(di.DepositAddress)
-
-	if dt.AmountDeposited+di.DepositValue >= dt.AmountRequired {
-		dt.AmountDeposited += di.DepositValue
-		p.store.updateDepositTrack(di.DepositAddress, dt)
-		di.Status = StatusWaitSend
-	}
 }

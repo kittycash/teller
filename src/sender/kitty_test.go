@@ -2,6 +2,7 @@ package sender
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -34,26 +35,29 @@ func (ds *dummyKittyClient) InjectTransaction(tx *iko.Transaction) (string, erro
 	return ds.broadcastTxTxid, ds.broadcastTxErr
 }
 
-func (ds *dummyKittyClient) CreateTransaction(destAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
+func (ds *dummyKittyClient) CreateTransaction(destAddr string, kittyID iko.KittyID, key cipher.SecKey) (*iko.Transaction, error) {
 	ds.Lock()
 	defer ds.Unlock()
 	if ds.createTxErr != nil {
 		return nil, ds.createTxErr
 	}
 
-	return ds.createTransaction(destAddr, kittyID)
+	return ds.createTransaction(destAddr, kittyID, key)
 }
 
-func (ds *dummyKittyClient) createTransaction(destAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
+func (ds *dummyKittyClient) createTransaction(destAddr string, kittyID iko.KittyID, key cipher.SecKey) (*iko.Transaction, error) {
 	addr, err := cipher.DecodeBase58Address(destAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return &iko.Transaction{
-		To:      addr,
+	txn := iko.Transaction{
+		Out:      addr,
 		KittyID: kittyID,
-	}, nil
+	}
+	txn.Sig = txn.Sign(key)
+
+	return &txn, nil
 }
 
 func (ds *dummyKittyClient) GetTransaction(txhash iko.TxHash) (*iko.Transaction, error) {
@@ -64,8 +68,8 @@ func (ds *dummyKittyClient) GetTransaction(txhash iko.TxHash) (*iko.Transaction,
 	return &txJson, ds.getTxErr
 }
 
-func (ds *dummyKittyClient) Balance() int {
-	return 1
+func (ds *dummyKittyClient) Balance(address string) (int, error) {
+	return 1, nil
 }
 
 func (ds *dummyKittyClient) changeConfirmStatus(v bool) {
@@ -97,7 +101,18 @@ func TestSenderBroadcastTransaction(t *testing.T) {
 	dsc := newDummyKittyClient()
 
 	dsc.changeBroadcastTxTxid("1111")
-	s := NewService(log, dsc)
+	secKey := cipher.SecKey([32]byte{
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+		3, 4, 5, 6,
+	})
+
+	s := NewService(log, dsc, secKey)
 	go func() {
 		err := s.Run()
 		require.NoError(t, err)
@@ -160,12 +175,13 @@ func TestSenderBroadcastTransaction(t *testing.T) {
 	require.Equal(t, "1111", txid)
 
 	t.Log("=== Run\tTest invalid request address")
-	txid, err = broadcastTx(sdr, "invalid address", 20)
-	require.Equal(t, "Invalid base58 character", err.Error())
+	txid, err = broadcastTx(sdr, "babcd", 20)
+	require.Equal(t, "Invalid address length", err.Error())
 	require.Empty(t, txid)
 
 	t.Log("=== Run\tTest invalid request address 2")
 	txid, err = broadcastTx(sdr, " bxpUG8sCjeT6X1ES5SbD2LZrRudqiTY7wx", 20)
+	fmt.Println(err)
 	require.Equal(t, "Invalid base58 character", err.Error())
 	require.Empty(t, txid)
 

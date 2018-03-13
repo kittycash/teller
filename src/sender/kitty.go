@@ -62,7 +62,7 @@ type ConfirmResponse struct {
 	Req       ConfirmRequest
 }
 
-// SendService is in charge of sending skycoin
+// SendService is in charge of sending kittyBoxes
 type SendService struct {
 	log             logrus.FieldLogger
 	KittyClient     KittyClient
@@ -70,18 +70,19 @@ type SendService struct {
 	done            chan struct{}
 	broadcastTxChan chan BroadcastTxRequest
 	confirmChan     chan ConfirmRequest
+	secKey          cipher.SecKey
 }
 
 // SkyClient defines a Kitty REST client interface for sending and confirming
 type KittyClient interface {
-	CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error)
+	CreateTransaction(recvAddr string, kittyID iko.KittyID, key cipher.SecKey) (*iko.Transaction, error)
 	InjectTransaction(tx *iko.Transaction) (string, error)
-	GetTransaction(iko.TxHash) (*iko.Transaction, error)
-	Balance() int
+	GetTransaction(txHash iko.TxHash) (*iko.Transaction, error)
+	Balance(address string) (int, error)
 }
 
 // NewService creates sender instance
-func NewService(log logrus.FieldLogger, kittycli KittyClient) *SendService {
+func NewService(log logrus.FieldLogger, kittycli KittyClient, secKey cipher.SecKey) *SendService {
 	return &SendService{
 		KittyClient:     kittycli,
 		log:             log.WithField("prefix", "sender.service"),
@@ -89,6 +90,7 @@ func NewService(log logrus.FieldLogger, kittycli KittyClient) *SendService {
 		done:            make(chan struct{}),
 		broadcastTxChan: make(chan BroadcastTxRequest, 10),
 		confirmChan:     make(chan ConfirmRequest, 10),
+		secKey:          secKey,
 	}
 }
 

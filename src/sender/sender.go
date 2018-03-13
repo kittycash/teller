@@ -18,7 +18,7 @@ type Sender interface {
 	CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error)
 	BroadcastTransaction(*iko.Transaction) *BroadcastTxResponse
 	IsTxConfirmed(Txid string) *ConfirmResponse
-	Balance() int
+	Balance(address string) (int, error)
 }
 
 // RetrySender provids helper function to send coins with Send service
@@ -36,7 +36,7 @@ func NewRetrySender(s *SendService) *RetrySender {
 
 // CreateTransaction creates a transaction offline
 func (s *RetrySender) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
-	return s.s.KittyClient.CreateTransaction(recvAddr, kittyID)
+	return s.s.KittyClient.CreateTransaction(recvAddr, kittyID, s.s.secKey)
 }
 
 // BroadcastTransaction sends a transaction in a goroutine
@@ -68,6 +68,6 @@ func (s *RetrySender) IsTxConfirmed(txid string) *ConfirmResponse {
 }
 
 // Balance returns the remaining balance of the sender
-func (s *RetrySender) Balance() int {
-	return s.s.KittyClient.Balance()
+func (s *RetrySender) Balance(address string) (int, error) {
+	return s.s.KittyClient.Balance(address)
 }
