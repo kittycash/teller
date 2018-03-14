@@ -5,8 +5,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/kittycash/teller/src/config"
 	"github.com/boltdb/bolt"
+
+	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/util/dbutil"
 )
 
@@ -118,9 +119,13 @@ func (p *Buy) updateStatus(di DepositInfo) (DepositInfo, error) {
 		if err != nil {
 			return err
 		}
-		if dt.AmountDeposited+di.DepositValue >= dt.AmountRequired {
-			dt.AmountDeposited += di.DepositValue
-			p.store.updateDepositTrackTx(tx, di.DepositAddress, dt)
+
+		dt.AmountDeposited += di.DepositValue
+		if err := p.store.updateDepositTrackTx(tx, di.DepositAddress, dt); err != nil {
+			return err
+		}
+
+		if dt.AmountDeposited >= dt.AmountRequired {
 			di.Status = StatusWaitSend
 			if err := dbutil.PutBucketValue(tx, DepositInfoBkt, di.Txid, di); err != nil {
 				return err

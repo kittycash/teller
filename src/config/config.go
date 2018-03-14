@@ -107,11 +107,6 @@ func (c BoxExchanger) Validate() error {
 		return errs[0]
 	}
 
-	//@TODO
-	//if errs := c.validateWallet(); len(errs) != 0 {
-	//	return errs[0]
-	//}
-
 	return nil
 }
 

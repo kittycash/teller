@@ -47,7 +47,7 @@ type Exchanger interface {
 	IsBound(kittyAddr string) bool
 	GetDepositStats() (*DepositStats, error)
 	Status() error
-	Balance() int
+	Balance() (int, error)
 }
 
 // Exchange encompasses an entire coin<>skycoin deposit-process-send flow
@@ -227,7 +227,7 @@ func (e *Exchange) GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDet
 	return dss, nil
 }
 
-// GetBindNum returns the number of btc/eth address the given sky address binded
+// IsBound returns whether the kitty is already bound to a deposit address or not
 func (e *Exchange) IsBound(kittyID string) bool {
 	//@TODO: improve this
 	addr, _ := e.store.GetKittyBindAddress(kittyID)
@@ -249,8 +249,7 @@ func (e *Exchange) GetDepositStats() (*DepositStats, error) {
 }
 
 // Balance returns the number of coins left in the OTC wallet
-func (e *Exchange) Balance() int {
-	//@TODO (therealssj): implement this
+func (e *Exchange) Balance() (int, error) {
 	return e.Sender.Balance()
 }
 

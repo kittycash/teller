@@ -38,6 +38,7 @@ type BaseScanner struct {
 	scannedDeposits chan Deposit
 	quit            chan struct{}
 	done            chan struct{}
+	CoinType        string
 }
 
 // CommonVout common transaction output info
@@ -62,7 +63,7 @@ type CommonBlock struct {
 }
 
 // NewBaseScanner creates base scanner instance
-func NewBaseScanner(store Storer, log logrus.FieldLogger, cfg Config) *BaseScanner {
+func NewBaseScanner(store Storer, log logrus.FieldLogger, coinType string, cfg Config) *BaseScanner {
 	if cfg.ScanPeriod == 0 {
 		cfg.ScanPeriod = blockScanPeriod
 	}
@@ -78,6 +79,7 @@ func NewBaseScanner(store Storer, log logrus.FieldLogger, cfg Config) *BaseScann
 		scannedDeposits: make(chan Deposit, cfg.DepositBufferSize),
 		done:            make(chan struct{}),
 		Cfg:             cfg,
+		CoinType:        coinType,
 	}
 }
 

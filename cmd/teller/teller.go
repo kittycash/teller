@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/gops/agent"
+
 	"github.com/skycoin/skycoin/src/cipher"
 
 	"github.com/boltdb/bolt"

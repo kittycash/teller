@@ -8,9 +8,10 @@ import (
 	"fmt"
 
 	"github.com/boltdb/bolt"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kittycash/teller/src/util/dbutil"
 	"github.com/kittycash/teller/src/util/testutil"
-	"github.com/stretchr/testify/require"
 
 	"github.com/skycoin/skycoin/src/visor"
 	"github.com/skycoin/skycoin/src/visor/blockdb"

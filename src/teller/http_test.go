@@ -57,13 +57,13 @@ func (e *fakeExchanger) Status() error {
 	return args.Error(0)
 }
 
-func (e *fakeExchanger) Balance() int {
+func (e *fakeExchanger) Balance() (int, error) {
 	//@TODO (therealssj): fix this
 
 	args := e.Called()
 	r := args.Get(0).(*int)
 
-	return *r
+	return *r, args.Error(1)
 }
 
 func TestExchangeStatusHandler(t *testing.T) {
@@ -103,7 +103,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 		},
 
 		{
-			"200 status message error ignored, not APIError",
+			"200 status message error ignored, not RPCError",
 			http.MethodGet,
 			"/api/exchange-status",
 			http.StatusOK,
@@ -115,12 +115,12 @@ func TestExchangeStatusHandler(t *testing.T) {
 		},
 
 		{
-			"200 status message error is APIError",
+			"200 status message error is RPCError",
 			http.MethodGet,
 			"/api/exchange-status",
 			http.StatusOK,
 			"",
-			sender.NewAPIError(errors.New("exchange.Status API error")),
+			sender.NewRPCError(errors.New("exchange.Status API error")),
 			"exchange.Status API error",
 			1,
 			nil,

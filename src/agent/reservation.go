@@ -5,17 +5,24 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+
 	"github.com/kittycash/teller/src/box"
 )
 
 //TODO (therealssj): handle reservation expiry
 
 var (
+	// ErrMaxReservationsExceeded represents that the user crossed his reservation limit
 	ErrMaxReservationsExceeded = errors.New("User has exceeded the max number of reservations")
+	// ErrBoxAlreadyReserved represents that the box has already been reserved
 	ErrBoxAlreadyReserved      = errors.New("Box already reserved")
+	// ErrInvalidCoinType represents that the box is being reserved using an unsupported cointype
 	ErrInvalidCoinType         = errors.New("Invalid coin type")
+	// ErrReservationNotFound reservation was not found in the database
 	ErrReservationNotFound     = errors.New("Reservation not found")
+	// ErrInvalidReservationType invalid reservation type ( reserved / available )
 	ErrInvalidReservationType  = errors.New("Invalid reservation type")
+	// ErrDepositAddressNotFound deposit address not found for the reservation
 	ErrDepositAddressNotFound  = errors.New("Deposit Address not found")
 )
 
@@ -43,9 +50,9 @@ type Reservation struct {
 	Expire time.Time
 }
 
-// Reservation keeps track of reservations in the iko
+// ReservationManager keeps track of reservations in the iko
 type ReservationManager struct {
-	sync.RWMutex
+	*sync.RWMutex
 	Reservations map[string]*Reservation
 }
 
@@ -59,6 +66,7 @@ func (r *Reservation) MakeAvailable() {
 	r.Status = Available
 }
 
+// GetReservationByKittyID returns reservation of the kittyID
 func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservation, error) {
 	rm.RLock()
 	defer rm.RUnlock()
@@ -71,6 +79,20 @@ func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservat
 	return rm.Reservations[kittyID], nil
 }
 
+// GetReservations returns all reservations currently being tracked by reservation manager
+func (rm *ReservationManager) GetReservations() []Reservation {
+	rm.RLock()
+	defer rm.RUnlock()
+
+	var reservations []Reservation
+	for _, r := range rm.Reservations {
+		reservations = append(reservations, *r)
+	}
+
+	return reservations
+}
+
+// GetReservationsByStatus returns all reservations of given status
 func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservation {
 	rm.RLock()
 	defer rm.RUnlock()
@@ -85,18 +107,7 @@ func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservati
 	return reservations
 }
 
-func (rm *ReservationManager) GetReservations() []Reservation {
-	rm.RLock()
-	defer rm.RUnlock()
-
-	var reservations []Reservation
-	for _, r := range rm.Reservations {
-		reservations = append(reservations, *r)
-	}
-
-	return reservations
-}
-
+// ChangeReservationStatus changes status of a reservation
 func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status string) {
 	rm.Lock()
 	defer rm.Unlock()
@@ -148,13 +159,11 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 
 	// update the reservation
 	if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
-		a.log.WithError(err).Error("CancelReservation failed for %s", reservation.Box.KittyID)
+		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.Box.KittyID)
 		return err
 	}
 	// update the user
-	a.store.UpdateUser(u)
-
-	return nil
+	return a.store.UpdateUser(u)
 }
 
 // CancelReservation cancels a kitty reservation
@@ -175,14 +184,16 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
 			// update the reservation
 			if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
-				a.log.WithError(err).Error("CancelReservation failed for %s", reservation.Box.KittyID)
+				a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.Box.KittyID)
 				return err
 			}
 
 			// delete the reservation
 			user.Reservations = append(user.Reservations[:i], user.Reservations[i+1:]...)
 
-			a.store.UpdateUser(user)
+			if err := a.store.UpdateUser(user); err != nil {
+				return err
+			}
 			break
 		}
 	}
@@ -221,7 +232,7 @@ func (a *Agent) GetReservation(kittyID string) (*Reservation, error) {
 func (a *Agent) GetKittyDepositAddress(kittyID string) (string, error) {
 	reservation, err := a.store.GetReservationFromKittyID(kittyID)
 	if err != nil {
-		a.log.WithError(err).Error("GetKittyDepositAddress failed for %v", kittyID)
+		a.log.WithError(err).Errorf("GetKittyDepositAddress failed for %v", kittyID)
 		return "", err
 	}
 

@@ -32,6 +32,7 @@ const (
 var statusString = []string{
 	StatusWaitDeposit: "waiting_deposit",
 	StatusWaitPartial: "waiting_partial",
+	StatusWaitSend:    "waiting_send",
 	StatusWaitConfirm: "waiting_confirm",
 	StatusDone:        "done",
 	StatusUnknown:     "unknown",
@@ -49,6 +50,8 @@ func NewStatusFromStr(st string) Status {
 		return StatusWaitDeposit
 	case statusString[StatusWaitPartial]:
 		return StatusWaitPartial
+	case statusString[StatusWaitSend]:
+		return StatusWaitSend
 	case statusString[StatusWaitConfirm]:
 		return StatusWaitConfirm
 	case statusString[StatusDone]:
@@ -87,6 +90,7 @@ type DepositInfo struct {
 	Deposit scanner.Deposit
 }
 
+// DepositTrack keeps track of payments towards a kitty reservation
 type DepositTrack struct {
 	// AmountDeposited is the amount deposited so far
 	AmountDeposited int64

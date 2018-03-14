@@ -5,19 +5,20 @@ import (
 	"errors"
 
 	"github.com/boltdb/bolt"
-	"github.com/kittycash/teller/src/util/dbutil"
 	"github.com/sirupsen/logrus"
+
+	"github.com/kittycash/teller/src/util/dbutil"
 )
 
 var (
 	// ReservationsKittyBkt bucket maps kitty id to reservation
 	// Reservations will always exist against a kittyid
 	ReservationsKittyBkt = []byte("reservations_kitty_idx")
-	// Users bucket maps user address to user info like reservations
+	// UsersBkt maps user address to user info like reservations
 	UsersBkt = []byte("users")
 	// KittyOwnerBkt maps kitty id to the skycoin address of the user who has reserved it
 	KittyOwnerBkt = []byte("kitty_owner_idex")
-	// Box bucket map kittyID to a kitty box
+	// BoxBkt map kittyID to a kitty box
 	// We do need some place to maintain kitty boxes
 	// @TODO need to think more about this. What will we store and the structure
 	BoxBkt = []byte("boxes")
@@ -79,6 +80,7 @@ func NewStore(log logrus.FieldLogger, db *bolt.DB) (*Store, error) {
 	}, nil
 }
 
+// GetReservations fetches all the reservations from the database
 func (s *Store) GetReservations() ([]Reservation, error) {
 	var reservations []Reservation
 
@@ -103,7 +105,7 @@ func (s *Store) GetReservations() ([]Reservation, error) {
 	return reservations, nil
 }
 
-// GetReservation returns a reservation instance
+// GetReservationFromKittyID returns a reservation from the kittyID
 // Args:
 // kittyID: ID of the kitty in the reservation box
 func (s *Store) GetReservationFromKittyID(kittyID string) (*Reservation, error) {
@@ -118,7 +120,7 @@ func (s *Store) GetReservationFromKittyID(kittyID string) (*Reservation, error) 
 	return reservation, nil
 }
 
-// GetReservationUserFromKittyID
+// GetReservationUserFromKittyID returns the user who has reserved the reservation for the given kittyID
 // Args:
 // kittyID: ID of a kitty reserved by the user
 func (s *Store) GetReservationUserFromKittyID(kittyID string) (*User, error) {
@@ -168,6 +170,7 @@ func (s *Store) GetReservationsByStatus(status string) ([]Reservation, error) {
 	return reservations, nil
 }
 
+// GetUsers fetchs all the users from the database
 func (s *Store) GetUsers() ([]User, error) {
 	var users []User
 
@@ -214,7 +217,7 @@ func (s *Store) GetUserReservations(userAddr string) ([]Reservation, error) {
 	return user.Reservations, nil
 }
 
-// Update user updates user info
+// UpdateUser updates user info
 // Args:
 // User: object of the user to be updated
 func (s *Store) UpdateUser(user *User) error {
@@ -223,7 +226,7 @@ func (s *Store) UpdateUser(user *User) error {
 	})
 }
 
-// Updates a reservation
+// UpdateReservation Updates a reservation
 // Args:
 // kittyID: ID of kitty in the reservation
 // reservation: object of reservation to be updated
