@@ -52,7 +52,7 @@ func (ds *dummyKittyClient) createTransaction(destAddr string, kittyID iko.Kitty
 	}
 
 	txn := iko.Transaction{
-		Out:      addr,
+		Out:     addr,
 		KittyID: kittyID,
 	}
 	txn.Sig = txn.Sign(key)
@@ -63,12 +63,12 @@ func (ds *dummyKittyClient) createTransaction(destAddr string, kittyID iko.Kitty
 func (ds *dummyKittyClient) GetTransaction(txhash iko.TxHash) (*iko.Transaction, error) {
 	ds.Lock()
 	defer ds.Unlock()
-	txJson := iko.Transaction{}
+	txJSON := iko.Transaction{}
 
-	return &txJson, ds.getTxErr
+	return &txJSON, ds.getTxErr
 }
 
-func (ds *dummyKittyClient) Balance(address string) (int, error) {
+func (ds *dummyKittyClient) Balance() (int, error) {
 	return 1, nil
 }
 

@@ -69,7 +69,7 @@ func (m *MockStore) UpdateDepositInfo(Tx string, f func(DepositInfo) DepositInfo
 	return args.Get(0).(DepositInfo), args.Error(1)
 }
 
-func (m *MockStore) UpdateDepositInfoCallback(btcTx string, f func(DepositInfo) DepositInfo, callback func(DepositInfo) error) (DepositInfo, error) {
+func (m *MockStore) UpdateDepositInfoCallback(btcTx string, f func(DepositInfo) DepositInfo, callback func(DepositInfo, *bolt.Tx) error) (DepositInfo, error) {
 	args := m.Called(btcTx, f, callback)
 	return args.Get(0).(DepositInfo), args.Error(1)
 }
@@ -94,7 +94,15 @@ func (m *MockStore) getDepositTrack(depositAddr string) (DepositTrack, error) {
 	return DepositTrack{}, nil
 }
 
+func (m *MockStore) getDepositTrackTx(tx *bolt.Tx, depositAddr string) (DepositTrack, error) {
+	return DepositTrack{}, nil
+}
+
 func (m *MockStore) updateDepositTrack(depositAddr string, dt DepositTrack) error {
+	return nil
+}
+
+func (m *MockStore) updateDepositTrackTx(tx *bolt.Tx, depositAddr string, dt DepositTrack) error {
 	return nil
 }
 

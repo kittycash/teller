@@ -31,6 +31,7 @@ type SkyRPCClient interface {
 	Shutdown()
 }
 
+// DepositStatus represents status of a scanned deposit
 type DepositStatus string
 
 const (

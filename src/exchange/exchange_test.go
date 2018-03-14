@@ -11,11 +11,12 @@ import (
 	logrus_test "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kittycash/wallet/src/iko"
+
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/scanner"
 	"github.com/kittycash/teller/src/sender"
 	"github.com/kittycash/teller/src/util/testutil"
-	"github.com/kittycash/wallet/src/iko"
 
 	"github.com/skycoin/skycoin/src/cipher"
 )
@@ -45,7 +46,7 @@ func (s *dummySender) CreateTransaction(destAddr string, kittyID iko.KittyID) (*
 
 	return &iko.Transaction{
 		KittyID: kittyID,
-		To:      addr,
+		Out:     addr,
 	}, nil
 }
 
@@ -103,8 +104,8 @@ func (s *dummySender) setTxConfirmed(txid string) {
 	s.txidConfirmMap[txid] = true
 }
 
-func (s *dummySender) Balance() int {
-	return 1
+func (s *dummySender) Balance() (int, error) {
+	return 1, nil
 }
 
 type dummyScanner struct {
@@ -143,7 +144,6 @@ const (
 	testMaxDecimals     = 0
 	testSkyAddr         = "2Wbi4wvxC4fkTYMsS2f6HaFfW4pafDjXcQW"
 	testSkyAddr2        = "hs1pyuNgxDLyLaZsnqzQG9U3DKdJsbzNpn"
-	testWalletFile      = "test.wlt"
 	dbScanTimeout       = time.Second * 3
 	statusCheckTimeout  = time.Second * 3
 	statusCheckInterval = time.Millisecond * 10
@@ -154,7 +154,6 @@ const (
 var (
 	defaultCfg = config.BoxExchanger{
 		TxConfirmationCheckWait: time.Millisecond * 100,
-		Wallet:                  testWalletFile,
 		SendEnabled:             true,
 	}
 )

@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"errors"
+
 	"github.com/kittycash/wallet/src/iko"
 
 	"github.com/skycoin/skycoin/src/cipher"
@@ -44,7 +45,7 @@ type DummySender struct {
 	secKey        cipher.SecKey
 	log           logrus.FieldLogger
 	sync.RWMutex
-	kittyID       iko.KittyID
+	kittyID iko.KittyID
 }
 
 // NewDummySender creates a DummySender

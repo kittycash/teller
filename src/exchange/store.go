@@ -395,11 +395,8 @@ func (s *Store) createDepositTrackTx(tx *bolt.Tx, boundInfo *BoundAddress) error
 		AmountDeposited: 0,
 		AmountRequired:  price,
 	}
-	if err := dbutil.PutBucketValue(tx, DepositTrackBkt, boundInfo.Address, dt); err != nil {
-		return err
-	}
 
-	return nil
+	return dbutil.PutBucketValue(tx, DepositTrackBkt, boundInfo.Address, dt)
 }
 
 func (s *Store) updateDepositTrack(depositAddr string, dt DepositTrack) error {
@@ -584,9 +581,9 @@ func (s *Store) getKittyPriceTx(tx *bolt.Tx, kittyID string, coinType string) (i
 	}
 
 	if coinType == "SKY" {
-		return r.Box.BoxDetail.PriceSKY, nil
+		return r.Box.Detail.PriceSKY, nil
 	} else if coinType == "BTC" {
-		return r.Box.BoxDetail.PriceBTC, nil
+		return r.Box.Detail.PriceBTC, nil
 	}
 
 	return 0, agent.ErrInvalidCoinType

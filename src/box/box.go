@@ -1,17 +1,17 @@
 package box
 
+//KittyID is the unique id for the kitty
 type KittyID uint64
 
 // Box represents a unique kitty box
 type Box struct {
-	//KittyID is the unique id for the kitty
 	KittyID string `json:"kitty_id"`
-	// BoxDetail contains metadata for the box
-	BoxDetail BoxDetail `json:"box_detail"`
+	// Detail contains metadata for the box
+	Detail Detail `json:"box_detail"`
 }
 
-// BoxDetail gives more info about the content of the box
-type BoxDetail struct {
+// Detail gives more info about the content of the box
+type Detail struct {
 	// Description defines the kitty inside the box
 	Description string `json:"description"`
 	// Open defines whether the box was opened or not

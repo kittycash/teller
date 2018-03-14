@@ -6,12 +6,13 @@ import (
 )
 
 var (
+	// ErrUserNotFound represents that the user does not exist
 	ErrUserNotFound = errors.New("User not found")
 )
 
 // User represent a kitty cash user
 type User struct {
-	sync.Mutex `json:"-"`
+	*sync.Mutex `json:"-"`
 	// Users skycoin address
 	Address string `json:"address"`
 	// A user can have multiple reservations
@@ -24,18 +25,22 @@ func (u *User) CanReserve() bool {
 	return len(u.Reservations) < maxReservation
 }
 
+// UserManager keeps tracks for user reservations
 type UserManager struct {
 	Users map[string]*User
 }
 
+// GetUser returns a user from the usermanager
 func (um *UserManager) GetUser(userAddr string) (*User, error) {
-	if u, ok := um.Users[userAddr]; !ok {
+	u, ok := um.Users[userAddr]
+	if !ok {
 		return nil, ErrUserNotFound
-	} else {
-		return u, nil
 	}
+
+	return u, nil
 }
 
+// AddReservation adds reservation to a usermanager
 func (um *UserManager) AddReservation(userAddr string, reservation *Reservation) error {
 	// Get the user and check whether he can reserve boxes
 	u, err := um.GetUser(userAddr)

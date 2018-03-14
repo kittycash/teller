@@ -73,12 +73,12 @@ type SendService struct {
 	secKey          cipher.SecKey
 }
 
-// SkyClient defines a Kitty REST client interface for sending and confirming
+// KittyClient defines a Kitty REST client interface for sending and confirming
 type KittyClient interface {
 	CreateTransaction(recvAddr string, kittyID iko.KittyID, key cipher.SecKey) (*iko.Transaction, error)
 	InjectTransaction(tx *iko.Transaction) (string, error)
 	GetTransaction(txHash iko.TxHash) (*iko.Transaction, error)
-	Balance(address string) (int, error)
+	Balance() (int, error)
 }
 
 // NewService creates sender instance

@@ -6,7 +6,7 @@ import (
 )
 
 //TODO (therealssj): implement limits
-//TODO (therealssj): improve data strucutres
+//TODO (therealssj): improve data structures
 
 const (
 	// Max number of reservations a user can do

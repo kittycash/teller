@@ -7,16 +7,16 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/kittycash/wallet/src/iko"
+
 	"github.com/kittycash/teller/src/config"
 	"github.com/kittycash/teller/src/sender"
-	"github.com/kittycash/wallet/src/iko"
-	"github.com/skycoin/skycoin/src/cipher"
 )
 
 // Sender is a component for sending boxes
 type Sender interface {
 	Status() error
-	Balance() int
+	Balance() (int, error)
 }
 
 // SendRunner a Sender than can be run
@@ -314,7 +314,7 @@ func (s *Send) handleDepositInfoState(di DepositInfo) (DepositInfo, error) {
 	}
 }
 
-func (s *Send) createTransaction(di DepositInfo, key cipher.SecKey) (*iko.Transaction, error) {
+func (s *Send) createTransaction(di DepositInfo) (*iko.Transaction, error) {
 	log := s.log.WithField("deposit", di)
 
 	// This should never occur, the DepositInfo is saved with a DepositAddress
@@ -334,13 +334,13 @@ func (s *Send) createTransaction(di DepositInfo, key cipher.SecKey) (*iko.Transa
 
 	log.Info("Creating kitty cash transaction")
 
-	kID, err := iko.KittyIDFromString(di.KittyID)
+	kittyID, err := iko.KittyIDFromString(di.KittyID)
 	if err != nil {
 		log.WithError(err).Errorf("failed to convert kittyID %v", di.KittyID)
 		return nil, err
 	}
 
-	tx, err := s.sender.CreateTransaction(di.OwnerAddress, kID, key)
+	tx, err := s.sender.CreateTransaction(di.OwnerAddress, kittyID)
 	if err != nil {
 		log.WithError(err).Error("sender.CreateTransaction failed")
 		return nil, err
@@ -386,9 +386,9 @@ func (s *Send) broadcastTransaction(tx *iko.Transaction) (*sender.BroadcastTxRes
 	return rsp, nil
 }
 
-// Balance is broken right now
-func (s *Send) Balance(addr string) (int,error) {
-	return s.sender.Balance(addr)
+// Balance returns no. of kitties in genesis address
+func (s *Send) Balance() (int, error) {
+	return s.sender.Balance()
 }
 
 func (s *Send) setStatus(err error) {

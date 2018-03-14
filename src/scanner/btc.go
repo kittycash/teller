@@ -42,7 +42,7 @@ type BTCScanner struct {
 
 // NewBTCScanner creates scanner instance
 func NewBTCScanner(log logrus.FieldLogger, store Storer, btc BtcRPCClient, cfg Config) (*BTCScanner, error) {
-	bs := NewBaseScanner(store, log.WithField("prefix", "scanner.btc"), cfg)
+	bs := NewBaseScanner(store, log.WithField("prefix", "scanner.btc"), CoinTypeBTC, cfg)
 
 	return &BTCScanner{
 		btcClient: btc,

@@ -1,11 +1,10 @@
 package sender
 
 import (
-	"errors"
-
 	"fmt"
-	"github.com/kittycash/wallet/src/rpc"
+
 	"github.com/kittycash/wallet/src/iko"
+	"github.com/kittycash/wallet/src/rpc"
 
 	"github.com/skycoin/skycoin/src/cipher"
 )
@@ -22,20 +21,21 @@ func NewRPCError(err error) RPCError {
 
 // RPC provides methods for sending kitties
 type RPC struct {
-	rpcAddr string
+	rpcAddr   string
 	rpcClient *rpc.Client
+	kittyAddr string
 }
 
-// NewAPI creates an API instance
+// NewRPC creates an RPC instance
 func NewRPC(rpcAddr string) (*RPC, error) {
 	client, err := rpc.NewClient(&rpc.ClientConfig{
-		Address:rpcAddr,
+		Address: rpcAddr,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &RPC{
-		rpcAddr: rpcAddr,
+		rpcAddr:   rpcAddr,
 		rpcClient: client,
 	}, nil
 }
@@ -51,7 +51,7 @@ func (c *RPC) CreateTransaction(recvAddr string, kittyID iko.KittyID, key cipher
 
 	toAddr, err := cipher.DecodeBase58Address(recvAddr)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to decode %v: %v", recvAddr, err.Error()))
+		return nil, fmt.Errorf("Unable to decode %v: %v", recvAddr, err.Error())
 	}
 
 	// create a transaction and sign it using the genesis secret key
@@ -97,8 +97,8 @@ func (c *RPC) InjectTransaction(tx *iko.Transaction) (string, error) {
 }
 
 // Balance returns the balance of an address
-func (c *RPC) Balance(address string) (int, error) {
-	addr, err := cipher.DecodeBase58Address(address)
+func (c *RPC) Balance() (int, error) {
+	addr, err := cipher.DecodeBase58Address(c.kittyAddr)
 	if err != nil {
 		return 0, err
 	}

@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/kittycash/teller/src/addrs"
 	"github.com/kittycash/teller/src/agent"
 	"github.com/kittycash/teller/src/exchange"
 	"github.com/kittycash/teller/src/sender"
 	"github.com/kittycash/teller/src/util/httputil"
 	"github.com/kittycash/teller/src/util/logger"
-	"github.com/sirupsen/logrus"
 )
 
 //TODO add authentication checks
@@ -134,7 +135,13 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 		}
 
 		// Get the wallet balance,
-		kitties := s.exchanger.Balance()
+		kittyBal, err := s.exchanger.Balance()
+		kitties := 0
+		if err != nil {
+			log.WithError(err).Error("s.exchange.Balance failed")
+		} else {
+			kitties = kittyBal
+		}
 
 		resp := ExchangeStatusResponse{
 			Error: errorMsg,
@@ -164,7 +171,7 @@ type reservationRequest struct {
 	CoinType    string `json:"coin_type"`
 }
 
-// ReserveHandler handles kitty box reservations
+// MakeReservationHandler handles kitty box reservations
 // Method: POST
 // Accept: application/json
 // URI: /api/reservation/reserve
@@ -270,13 +277,12 @@ type cancelReservationRequest struct {
 	KittyID     string `json:"kitty_id"`
 }
 
-// cancelHandler cancels a reservation
+// CancelReservationHandler cancels a reservation
 // Method: POST
 // Accept: application/json
 // URI: /api/reservation/cancel
 // Args:
-//    {"user_address": "<user_address>"}
-//    {"kitty_id": "<kitty_Id>"}
+//    {"user_address": "<user_address>", "kitty_id": "<kitty_Id>"}
 func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -332,7 +338,7 @@ func CancelReservationHandler(s *HTTPServer) http.HandlerFunc {
 }
 
 // ReservationsResponse represents reservations of a desired status
-// like available or reserved
+// like available/reserved/all
 type ReservationsResponse struct {
 	Reservations []agent.Reservation `json:"reservations"`
 	Status       string              `json:"status"`
@@ -343,7 +349,7 @@ type ReservationsResponse struct {
 // Accept: application/json
 // URI: /api/reservation/getreservation?status=
 // Args:
-//    status: Reservation status, available or reserved
+//    status: Reservation status, available/reserved/all
 func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -377,12 +383,13 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 	}
 }
 
+// GetDepositAddressResponse represents response of get deposit address request
 type GetDepositAddressResponse struct {
 	UserAddress string `json:"user_address"`
 	KittyID     string `json:"kitty_id"`
 }
 
-// GetReservationsHandler gets reservations based on the status
+// GetDepositAddressHandler gets deposit address of given kittyID
 // Method: GET
 // Accept: application/json
 // URI: /api/reservation/getdepositaddress?useraddr=?&kittyid=?
