@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-
-	"github.com/kittycash/teller/src/box"
 )
 
 //TODO (therealssj): handle reservation expiry
@@ -15,15 +13,15 @@ var (
 	// ErrMaxReservationsExceeded represents that the user crossed his reservation limit
 	ErrMaxReservationsExceeded = errors.New("User has exceeded the max number of reservations")
 	// ErrBoxAlreadyReserved represents that the box has already been reserved
-	ErrBoxAlreadyReserved      = errors.New("Box already reserved")
+	ErrBoxAlreadyReserved = errors.New("Box already reserved")
 	// ErrInvalidCoinType represents that the box is being reserved using an unsupported cointype
-	ErrInvalidCoinType         = errors.New("Invalid coin type")
+	ErrInvalidCoinType = errors.New("Invalid coin type")
 	// ErrReservationNotFound reservation was not found in the database
-	ErrReservationNotFound     = errors.New("Reservation not found")
+	ErrReservationNotFound = errors.New("Reservation not found")
 	// ErrInvalidReservationType invalid reservation type ( reserved / available )
-	ErrInvalidReservationType  = errors.New("Invalid reservation type")
+	ErrInvalidReservationType = errors.New("Invalid reservation type")
 	// ErrDepositAddressNotFound deposit address not found for the reservation
-	ErrDepositAddressNotFound  = errors.New("Deposit Address not found")
+	ErrDepositAddressNotFound = errors.New("Deposit Address not found")
 )
 
 const (
@@ -33,15 +31,17 @@ const (
 	// Reserved reservation
 	Reserved = "reserved"
 	// Delivered means the box of this reservation has been sent to a user
-	Delivered = "delievered"
+	Delivered = "delivered"
 )
 
 // Reservation is a reservation instance for a kitty box
 type Reservation struct {
-	// Address where the buyer should send the payment
+	// DepositAddress is where the buyer should send the payment
 	DepositAddress string
-	// The kitty box of this reservation
-	Box *box.Box
+	// address where we will send the kitty
+	OwnerAddress string
+	// KittyID is the unique ID of the kitty inside the box being reserved
+	KittyID string
 	// Status of the reservation
 	Status string
 	// Payment currency
@@ -158,8 +158,8 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 	}
 
 	// update the reservation
-	if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
-		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.Box.KittyID)
+	if err := a.store.UpdateReservation(reservation.KittyID, reservation); err != nil {
+		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 		return err
 	}
 	// update the user
@@ -183,8 +183,8 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 			reservation.MakeAvailable()
 			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
 			// update the reservation
-			if err := a.store.UpdateReservation(reservation.Box.KittyID, reservation); err != nil {
-				a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.Box.KittyID)
+			if err := a.store.UpdateReservation(reservation.KittyID, reservation); err != nil {
+				a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 				return err
 			}
 

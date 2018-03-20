@@ -121,6 +121,7 @@
     ".",
     "hcl/ast",
     "hcl/parser",
+    "hcl/printer",
     "hcl/scanner",
     "hcl/strconv",
     "hcl/token",
@@ -142,10 +143,9 @@
   packages = [
     "src/iko",
     "src/rpc",
-    "src/util",
-    "src/wallet"
+    "src/util"
   ]
-  revision = "74f1b2bfd264bd22f409176be9d496558689e908"
+  revision = "fa87c86958401196246fcc3f12f9ae37deab17fc"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -341,8 +341,8 @@
 [[projects]]
   name = "github.com/spf13/viper"
   packages = ["."]
-  revision = "25b30aa063fc18e48662b86996252eabdcf2f0c7"
-  version = "v1.0.0"
+  revision = "b5e8006cbee93ec955a89ab31e0e3ce3204f3736"
+  version = "v1.0.2"
 
 [[projects]]
   name = "github.com/stretchr/objx"
@@ -376,13 +376,13 @@
     "ripemd160",
     "ssh/terminal"
   ]
-  revision = "182114d582623c1caa54f73de9c7224e23a48487"
+  revision = "c3a3ad6d03f7a915c0f7e194b7152974bb73d287"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "803fdb99c0f72e493c28ef2099d250a9c989d8ff"
+  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
 
 [[projects]]
   branch = "master"
@@ -391,7 +391,7 @@
     "unix",
     "windows"
   ]
-  revision = "c28acc882ebcbfbe8ce9f0f14b9ac26ee138dd51"
+  revision = "d8e400bc7db4870d786864138af681469693d18c"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -410,7 +410,7 @@
   branch = "master"
   name = "golang.org/x/time"
   packages = ["rate"]
-  revision = "6dc17368e09b0e8634d71cac8168d853e869a0c7"
+  revision = "26559e0f760e39c24d730d3224364aef164ee23f"
 
 [[projects]]
   name = "gopkg.in/sirupsen/logrus.v1"
@@ -427,6 +427,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "710e2c07eed30985f1c06046fe0cf2a8913c75202e4326491ede96bcee1e4956"
+  inputs-digest = "f199184039e6aed081f3b39d7e8e53be1b59f85a75fc71cf265a68aa0a7f4b97"
   solver-name = "gps-cdcl"
   solver-version = 1
