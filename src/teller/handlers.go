@@ -169,6 +169,7 @@ type reservationRequest struct {
 	UserAddress string `json:"user_address"`
 	KittyID     string `json:"kitty_id"`
 	CoinType    string `json:"coin_type"`
+	VerificationCode string `json:"verification_code"`
 }
 
 // MakeReservationHandler handles kitty box reservations
@@ -223,7 +224,13 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
-		err := s.service.agentManager.MakeReservation(reserveReq.UserAddress, reserveReq.KittyID, reserveReq.CoinType)
+		if reserveReq.VerificationCode == "" {
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("missing verification code"))
+			return
+		}
+
+		err := s.service.agentManager.MakeReservation(reserveReq.UserAddress,
+		reserveReq.KittyID, reserveReq.CoinType, reserveReq.VerificationCode)
 		if err != nil {
 			log.WithError(err).Error("s.agent.MakeReservation failed")
 			switch err {

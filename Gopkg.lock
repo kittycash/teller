@@ -82,6 +82,15 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/gomodule/redigo"
+  packages = [
+    "internal",
+    "redis"
+  ]
+  revision = "9c11da706d9b7902c6da69c592f75637793fe121"
+  version = "v2.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/google/btree"
   packages = ["."]
@@ -427,6 +436,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f199184039e6aed081f3b39d7e8e53be1b59f85a75fc71cf265a68aa0a7f4b97"
+  inputs-digest = "98b6c8a074fbee84794673af4605423d2378fd91ec290833b6a686a27ffe934a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -119,7 +119,14 @@ func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status str
 // userAddress: Address of the user reserving the box
 // kittyID: ID of kitty in the reservation box
 // cointype: payment cointype
-func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string) error {
+func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string, verificationCode string) error {
+	// verify the verification code
+	err := a.Verifier.VerifyCode(verificationCode)
+	if err != nil {
+		a.log.WithError(err).Error("Verifier.VerifyCode failed")
+		return err
+	}
+
 	// get the reservation for the reservation map
 	reservation, err := a.ReservationManager.GetReservationByKittyID(kittyID)
 	if err != nil {
@@ -162,8 +169,16 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 		return err
 	}
+
 	// update the user
-	return a.store.UpdateUser(u)
+	err = a.store.UpdateUser(u)
+	if err != nil {
+		a.log.WithError(err).Error("Storer.UpdateUser failed")
+		return err
+	}
+	
+	// satisfy the verification code
+	return a.Verifier.SatisfyCode(verificationCode)
 }
 
 // CancelReservation cancels a kitty reservation
@@ -177,7 +192,7 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 	}
 	var reservation *Reservation
 	for i := range user.Reservations {
-		if user.Reservations[i].Box.KittyID == kittyID {
+		if user.Reservations[i].KittyID == kittyID {
 			reservation = &user.Reservations[i]
 			// make the reservation available
 			reservation.MakeAvailable()
