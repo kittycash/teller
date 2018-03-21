@@ -20,7 +20,7 @@ type Config struct {
 
 // AgentManager provides APIs to interact with the agent service
 type AgentManager interface {
-	MakeReservation(userAddress string, kittyID string, coinType string) error
+	MakeReservation(userAddress string, kittyID string, coinType string, verificationCode string) error
 	CancelReservation(userAddress, kittyID string) error
 	GetReservations(status string) ([]Reservation, error)
 	GetReservation(kittyID string) (*Reservation, error)
@@ -28,12 +28,15 @@ type AgentManager interface {
 }
 
 // Agent represents an agent object
+// handles kitty reservation requests
+// enforces limits, verifies verification codes
 type Agent struct {
 	log                logrus.FieldLogger
 	store              Storer
 	cfg                Config
 	ReservationManager *ReservationManager
 	UserManager        *UserManager
+	Verifier           *Verifier
 }
 
 // New creates a new agent service
@@ -45,17 +48,20 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 	var rm ReservationManager
 
 	for _, r := range reservations {
-		rm.Reservations[r.Box.KittyID] = &r
+		rm.Reservations[r.KittyID] = &r
 	}
 
 	for _, u := range users {
 		um.Users[u.Address] = &u
 	}
+
+	verifier := NewVerifier(log)
 	return &Agent{
 		log:                log.WithField("prefix", "teller.agent"),
 		cfg:                cfg,
 		store:              store,
 		ReservationManager: &rm,
 		UserManager:        &um,
+		Verifier:           verifier,
 	}
 }
