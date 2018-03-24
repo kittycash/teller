@@ -82,6 +82,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/gomodule/redigo"
   packages = [
     "internal",
@@ -138,13 +144,23 @@
     "json/scanner",
     "json/token"
   ]
-  revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
+  revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
 
 [[projects]]
   branch = "master"
   name = "github.com/kardianos/osext"
   packages = ["."]
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
+
+[[projects]]
+  branch = "develop"
+  name = "github.com/kittycash/kitty-api"
+  packages = [
+    "src/api",
+    "src/database",
+    "src/database/redisdb"
+  ]
+  revision = "05e380b156de82185fbc0de34c3e93afc4331395"
 
 [[projects]]
   branch = "master"
@@ -154,7 +170,7 @@
     "src/rpc",
     "src/util"
   ]
-  revision = "fa87c86958401196246fcc3f12f9ae37deab17fc"
+  revision = "fe2f31675f85b658ab54a0469b17b35d1da76743"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -223,6 +239,12 @@
   revision = "53be0d36a84c2a886ca057d34b6aa4468df9ccb4"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -281,7 +303,6 @@
 [[projects]]
   name = "github.com/skycoin/skycoin"
   packages = [
-    "src/api/webrpc",
     "src/cipher",
     "src/cipher/base58",
     "src/cipher/chacha20",
@@ -295,11 +316,13 @@
     "src/daemon/gnet",
     "src/daemon/pex",
     "src/daemon/strand",
+    "src/gui",
     "src/util/droplet",
     "src/util/elapse",
     "src/util/fee",
     "src/util/file",
     "src/util/http",
+    "src/util/iputil",
     "src/util/logging",
     "src/util/utc",
     "src/visor",
@@ -308,7 +331,8 @@
     "src/visor/historydb",
     "src/wallet"
   ]
-  revision = "c86e0afdebd0c06ee8ea8d01ac7dce84fef04ddc"
+  revision = "84098d9ef5cdfa86d325509cf200dd7e45b4a1b4"
+  version = "v0.22.0"
 
 [[projects]]
   name = "github.com/skycoin/teller"
@@ -385,7 +409,7 @@
     "ripemd160",
     "ssh/terminal"
   ]
-  revision = "c3a3ad6d03f7a915c0f7e194b7152974bb73d287"
+  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
 
 [[projects]]
   branch = "master"
@@ -400,7 +424,7 @@
     "unix",
     "windows"
   ]
-  revision = "d8e400bc7db4870d786864138af681469693d18c"
+  revision = "91ee8cde435411ca3f1cd365e8f20131aed4d0a1"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -422,10 +446,31 @@
   revision = "26559e0f760e39c24d730d3224364aef164ee23f"
 
 [[projects]]
+  name = "google.golang.org/appengine"
+  packages = [
+    ".",
+    "internal",
+    "internal/app_identity",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/modules",
+    "internal/remote_api"
+  ]
+  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
+  version = "v1.0.0"
+
+[[projects]]
   name = "gopkg.in/sirupsen/logrus.v1"
   packages = ["."]
   revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
   version = "v1.0.5"
+
+[[projects]]
+  name = "gopkg.in/urfave/cli.v1"
+  packages = ["."]
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
@@ -436,6 +481,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "98b6c8a074fbee84794673af4605423d2378fd91ec290833b6a686a27ffe934a"
+  inputs-digest = "1debbc40f4b76b20de58c7e4dabefb0bd1b65ca2c89ed4db371623b4e40aa16e"
   solver-name = "gps-cdcl"
   solver-version = 1
