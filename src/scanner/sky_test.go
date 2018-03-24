@@ -1,24 +1,27 @@
 package scanner
 
 import (
+	"encoding/binary"
 	"errors"
 	"testing"
 	"time"
 
-	"fmt"
-
 	"github.com/boltdb/bolt"
+	"github.com/skycoin/skycoin/src/cipher/encoder"
+	"github.com/skycoin/skycoin/src/coin"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kittycash/teller/src/util/dbutil"
 	"github.com/kittycash/teller/src/util/testutil"
 
 	"github.com/skycoin/skycoin/src/visor"
-	"github.com/skycoin/skycoin/src/visor/blockdb"
 )
 
 var (
-	errNoSkyBlockHash = errors.New("no block found for height")
+	dummySkyBlocksBktName = []byte("blocks")
+	dummySkyTreeBktName   = []byte("block_tree")
+	errNoSkyBlockHash     = errors.New("no block found for hash")
+	errNoSkyBlockHeight   = errors.New("no block found for height")
 )
 
 type dummySkyrpcclient struct {
@@ -37,7 +40,7 @@ type dummySkyrpcclient struct {
 
 func openDummySkyDB(t *testing.T) *bolt.DB {
 	// Blocks 0 through 180 are stored in this DB
-	db, err := bolt.Open("./sky.db", 0600, nil)
+	db, err := bolt.Open("./sky.db", 0600, &bolt.Options{ReadOnly: true})
 	require.NoError(t, err)
 	return db
 }
@@ -61,7 +64,6 @@ func (dsc *dummySkyrpcclient) GetBlockCount() (int64, error) {
 }
 
 func (dsc *dummySkyrpcclient) GetBlockVerboseTx(seq uint64) (*visor.ReadableBlock, error) {
-	//TODO (therealssj): refactor this to directly read from the database
 	if seq > 0 && seq == dsc.blockNextHeightMissingOnceAt && !dsc.hasSetMissingHeight {
 		dsc.hasSetMissingHeight = true
 		return nil, errNoSkyBlockHash
@@ -72,21 +74,54 @@ func (dsc *dummySkyrpcclient) GetBlockVerboseTx(seq uint64) (*visor.ReadableBloc
 		return nil, dsc.blockVerboseTxError
 	}
 
-	blockChain, err := blockdb.NewBlockchain(dsc.db, visor.DefaultWalker)
-	if err != nil {
+	var block *visor.ReadableBlock
+	if err := dsc.db.View(func(tx *bolt.Tx) error {
+		var err error
+
+		// tree bucket cursor
+		c := tx.Bucket(dummySkyTreeBktName).Cursor()
+		// search for the required key, need to first convert depth to []byte
+		_, pairsBin := c.Seek(Itob(seq))
+		if pairsBin == nil {
+			return errNoSkyBlockHeight
+		}
+		pairs := []coin.HashPair{}
+		// deserialize from binary to hashpair
+		if err := encoder.DeserializeRaw(pairsBin, &pairs); err != nil {
+			return err
+		}
+		// get hash from hashpair
+		hash := visor.DefaultWalker(pairs)
+
+		// block bucket cursor
+		bc := tx.Bucket(dummySkyBlocksBktName).Cursor()
+		// search for required hash
+		_, bin := bc.Seek(hash[:])
+		if bin == nil {
+			return errNoSkyBlockHash
+		}
+
+		// deserialize from binary to block
+		cblock := coin.Block{}
+		if err := encoder.DeserializeRaw(bin, &cblock); err != nil {
+			return err
+		}
+
+		// covert coin.Block to readableblock
+		block, err = visor.NewReadableBlock(&cblock)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 
-	block, err := blockChain.GetBlockBySeq(seq)
-	if err != nil {
-		return nil, err
-	}
+	return block, nil
+}
 
-	if block == nil {
-		return nil, errNoSkyBlockHash
-	}
-
-	return visor.NewReadableBlock(&block.Block)
+// Itob converts uint64 to bytes
+func Itob(v uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
 }
 
 func (dsc *dummySkyrpcclient) Shutdown() {}
@@ -160,8 +195,6 @@ func testSkyScannerRunProcessedLoop(t *testing.T, scr *SKYScanner, nDeposits int
 			dv.ErrC <- nil
 		}
 
-		fmt.Println(nDeposits)
-		fmt.Println(len(dvs))
 		require.Equal(t, nDeposits, len(dvs))
 
 		// check all deposits
@@ -194,8 +227,8 @@ func testSkyScannerRunProcessedLoop(t *testing.T, scr *SKYScanner, nDeposits int
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := scr.Base.(*BaseScanner).Cfg.ScanPeriod * time.Duration(nDeposits*2)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {
@@ -252,7 +285,7 @@ func testSkyScannerInitialGetBlockHashError(t *testing.T, skyDB *bolt.DB) {
 
 	err := scr.Run()
 	require.Error(t, err)
-	require.Equal(t, errNoSkyBlockHash, err)
+	require.Equal(t, errNoSkyBlockHeight, err)
 }
 
 func testSkyScannerGetBlockCountErrorRetry(t *testing.T, skyDB *bolt.DB) {
@@ -324,8 +357,8 @@ func testSkyScannerProcessDepositError(t *testing.T, skyDB *bolt.DB) {
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := time.Duration(int64(scr.Base.(*BaseScanner).Cfg.ScanPeriod) * nDeposits * 2)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {
@@ -359,32 +392,32 @@ func testSkyScannerLoadUnprocessedDeposits(t *testing.T, skyDB *bolt.DB) {
 	// NOTE: This data is fake, but the addresses and Txid are valid
 	unprocessedDeposits := []Deposit{
 		{
-			CoinType: CoinTypeSKY,
-			Address:  "2J3rWX7pciQwmvcATSnxEeCHRs1mSkWmt4L",
-			Value:    1e8,
-			Height:   141,
-			Tx:       "16f8b9369f76ef6a0c1ecf82e1c18d5bc8ae5ef8b01b6530096cb1ff70bbd3fd",
-			N:        1,
+			CoinType:  CoinTypeSKY,
+			Address:   "2J3rWX7pciQwmvcATSnxEeCHRs1mSkWmt4L",
+			Value:     1e8,
+			Height:    141,
+			Tx:        "16f8b9369f76ef6a0c1ecf82e1c18d5bc8ae5ef8b01b6530096cb1ff70bbd3fd",
+			N:         1,
 			Status:   DepositNotProcessed,
 		},
 		{
-			CoinType: CoinTypeSKY,
-			Address:  "VD98Qt2f2UeUbUKcCJEaKxqEewExgCyiVh",
-			Value:    10e8,
-			Height:   115,
-			Tx:       "bb700553c3e1a32346912ab311fa38793d929f311daeee0b167fa81c1369717e",
-			N:        1,
+			CoinType:  CoinTypeSKY,
+			Address:   "VD98Qt2f2UeUbUKcCJEaKxqEewExgCyiVh",
+			Value:     10e8,
+			Height:    115,
+			Tx:        "bb700553c3e1a32346912ab311fa38793d929f311daeee0b167fa81c1369717e",
+			N:         1,
 			Status:   DepositNotProcessed,
 		},
 	}
 
 	processedDeposit := Deposit{
-		CoinType: CoinTypeSKY,
-		Address:  "2iJPqYVuQvFoG1pim4bjoyxWK8uwGmznWaV",
-		Value:    100e8,
-		Height:   163,
-		Tx:       "ec79854fade530d84099d5619864a8e1e8ec9d27a086917a239500cada43c6e8",
-		N:        1,
+		CoinType:  CoinTypeSKY,
+		Address:   "2iJPqYVuQvFoG1pim4bjoyxWK8uwGmznWaV",
+		Value:     100e8,
+		Height:    163,
+		Tx:        "ec79854fade530d84099d5619864a8e1e8ec9d27a086917a239500cada43c6e8",
+		N:         1,
 		Status:   DepositAccepted,
 	}
 
