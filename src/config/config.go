@@ -62,7 +62,6 @@ type Teller struct {
 // SkyRPC config for Skycoin daemon node RPC
 type SkyRPC struct {
 	Address string `mapstructure:"address"`
-	Enabled bool   `mapstructure:"enabled"`
 }
 
 // BtcRPC config for btcrpc
@@ -71,7 +70,6 @@ type BtcRPC struct {
 	User    string `mapstructure:"user"`
 	Pass    string `mapstructure:"pass"`
 	Cert    string `mapstructure:"cert"`
-	Enabled bool   `mapstructure:"enabled"`
 }
 
 // BtcScanner config for BTC scanner
@@ -80,6 +78,7 @@ type BtcScanner struct {
 	ScanPeriod            time.Duration `mapstructure:"scan_period"`
 	InitialScanHeight     int64         `mapstructure:"initial_scan_height"`
 	ConfirmationsRequired int64         `mapstructure:"confirmations_required"`
+	Enabled bool   `mapstructure:"enabled"`
 }
 
 // SkyScanner config for SKY Scanner
@@ -87,6 +86,7 @@ type SkyScanner struct {
 	// How often to try to scan for blocks
 	ScanPeriod        time.Duration `mapstructure:"scan_period"`
 	InitialScanHeight int64         `mapstructure:"initial_scan_height"`
+	Enabled bool   `mapstructure:"enabled"`
 }
 
 // BoxExchanger config for box sender
@@ -224,7 +224,7 @@ func (c Config) Validate() error {
 	}
 
 	if !c.Dummy.Scanner {
-		if c.BtcRPC.Enabled {
+		if c.BtcScanner.Enabled {
 			if c.BtcRPC.Server == "" {
 				oops("btc_rpc.server missing")
 			}
