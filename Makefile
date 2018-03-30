@@ -48,7 +48,7 @@ lint: ## Run linters. Use make install-linters first.
 		-E unparam \
 		-E varcheck \
 		-E vet \
-		./...
+		./src/... ./cmd/...
 
 check: lint test ## Run tests and linters
 

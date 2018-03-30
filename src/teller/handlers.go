@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -161,8 +162,8 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 // ReserveResponse represents the response of a reservation request
 type ReserveResponse struct {
 	DepositAddress string `json:"deposit_address"`
-	PaymentAmount  string `json:"payment_amount"`
 	CoinType       string `json:"coin_type"`
+	Deadline       int64  `json:"deadline"`
 }
 
 type reservationRequest struct {
@@ -267,6 +268,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		if err := httputil.JSONResponse(w, ReserveResponse{
 			DepositAddress: boundAddr.Address,
 			CoinType:       boundAddr.CoinType,
+			Deadline:       time.Now().Add(time.Hour * 24).Unix(),
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}

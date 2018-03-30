@@ -21,8 +21,8 @@ type Config struct {
 	KittyAPIConfig rpc.ClientConfig
 }
 
-// AgentManager provides APIs to interact with the agent service
-type AgentManager interface {
+// Manager provides APIs to interact with the agent service
+type Manager interface {
 	MakeReservation(userAddress string, kittyID string, coinType string, verificationCode string) error
 	CancelReservation(userAddress, kittyID string) error
 	GetReservations(status string) ([]Reservation, error)

@@ -128,8 +128,8 @@ func TestMultiplexerOnlyBtc(t *testing.T) {
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := time.Duration(int64(scr.Base.(*BaseScanner).Cfg.ScanPeriod) * nDeposits * 3)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {
@@ -190,8 +190,8 @@ func TestMultiplexerForAll(t *testing.T) {
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := time.Duration(int64(scr.Base.(*BaseScanner).Cfg.ScanPeriod) * (nDepositsBtc + nDepositsSky) * 3)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {

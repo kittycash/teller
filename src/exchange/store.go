@@ -581,9 +581,9 @@ func (s *Store) getKittyPriceTx(tx *bolt.Tx, kittyID string, coinType string) (i
 	}
 
 	if coinType == "SKY" {
-		return r.Box.Detail.PriceSKY, nil
+		return r.PaymentAmount, nil
 	} else if coinType == "BTC" {
-		return r.Box.Detail.PriceBTC, nil
+		return r.PaymentAmount, nil
 	}
 
 	return 0, agent.ErrInvalidCoinType
