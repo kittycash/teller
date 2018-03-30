@@ -392,32 +392,32 @@ func testSkyScannerLoadUnprocessedDeposits(t *testing.T, skyDB *bolt.DB) {
 	// NOTE: This data is fake, but the addresses and Txid are valid
 	unprocessedDeposits := []Deposit{
 		{
-			CoinType:  CoinTypeSKY,
-			Address:   "2J3rWX7pciQwmvcATSnxEeCHRs1mSkWmt4L",
-			Value:     1e8,
-			Height:    141,
-			Tx:        "16f8b9369f76ef6a0c1ecf82e1c18d5bc8ae5ef8b01b6530096cb1ff70bbd3fd",
-			N:         1,
+			CoinType: CoinTypeSKY,
+			Address:  "2J3rWX7pciQwmvcATSnxEeCHRs1mSkWmt4L",
+			Value:    1e8,
+			Height:   141,
+			Tx:       "16f8b9369f76ef6a0c1ecf82e1c18d5bc8ae5ef8b01b6530096cb1ff70bbd3fd",
+			N:        1,
 			Status:   DepositNotProcessed,
 		},
 		{
-			CoinType:  CoinTypeSKY,
-			Address:   "VD98Qt2f2UeUbUKcCJEaKxqEewExgCyiVh",
-			Value:     10e8,
-			Height:    115,
-			Tx:        "bb700553c3e1a32346912ab311fa38793d929f311daeee0b167fa81c1369717e",
-			N:         1,
+			CoinType: CoinTypeSKY,
+			Address:  "VD98Qt2f2UeUbUKcCJEaKxqEewExgCyiVh",
+			Value:    10e8,
+			Height:   115,
+			Tx:       "bb700553c3e1a32346912ab311fa38793d929f311daeee0b167fa81c1369717e",
+			N:        1,
 			Status:   DepositNotProcessed,
 		},
 	}
 
 	processedDeposit := Deposit{
-		CoinType:  CoinTypeSKY,
-		Address:   "2iJPqYVuQvFoG1pim4bjoyxWK8uwGmznWaV",
-		Value:     100e8,
-		Height:    163,
-		Tx:        "ec79854fade530d84099d5619864a8e1e8ec9d27a086917a239500cada43c6e8",
-		N:         1,
+		CoinType: CoinTypeSKY,
+		Address:  "2iJPqYVuQvFoG1pim4bjoyxWK8uwGmznWaV",
+		Value:    100e8,
+		Height:   163,
+		Tx:       "ec79854fade530d84099d5619864a8e1e8ec9d27a086917a239500cada43c6e8",
+		N:        1,
 		Status:   DepositAccepted,
 	}
 

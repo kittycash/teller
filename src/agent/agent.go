@@ -2,6 +2,9 @@
 package agent
 
 import (
+	"strconv"
+
+	"github.com/kittycash/kitty-api/src/rpc"
 	"github.com/sirupsen/logrus"
 )
 
@@ -15,7 +18,7 @@ const (
 
 // Config defines the agent config
 type Config struct {
-	//@TODO
+	KittyAPIConfig rpc.ClientConfig
 }
 
 // AgentManager provides APIs to interact with the agent service
@@ -37,25 +40,47 @@ type Agent struct {
 	ReservationManager *ReservationManager
 	UserManager        *UserManager
 	Verifier           *Verifier
+	KittyAPI           *KittyAPIClient
 }
 
 // New creates a new agent service
 func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
-	reservations, _ := store.GetReservations()
-	users, _ := store.GetUsers()
-
 	var um UserManager
 	var rm ReservationManager
 
-	for _, r := range reservations {
-		rm.Reservations[r.KittyID] = &r
+	verifier := NewVerifier(log)
+	kittyAPICLient := NewKittyAPI(&cfg.KittyAPIConfig, log)
+
+	// get 100 kitties from the start
+	// no filters or sorters
+	entries, err := kittyAPICLient.c.Entries(&rpc.EntriesIn{
+		Offset:   0,
+		PageSize: 100,
+		Filters:  nil,
+		Sorters:  nil,
+	})
+	// panic if we are not able to fetch kitties from kitty api
+	if err != nil {
+		log.Panic(err)
 	}
 
+	for _, entry := range entries.Results {
+		kittyID := strconv.Itoa(int(entry.ID))
+		// panic if we come across a faulty kittyid
+		if err != nil {
+			log.Panic(err)
+		}
+		rm.Reservations[kittyID] = &Reservation{
+			KittyID: kittyID,
+			Status:  entry.Reservation,
+		}
+	}
+
+	users, _ := store.GetUsers()
 	for _, u := range users {
 		um.Users[u.Address] = &u
 	}
 
-	verifier := NewVerifier(log)
 	return &Agent{
 		log:                log.WithField("prefix", "teller.agent"),
 		cfg:                cfg,
@@ -63,5 +88,6 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 		ReservationManager: &rm,
 		UserManager:        &um,
 		Verifier:           verifier,
+		KittyAPI:           kittyAPICLient,
 	}
 }

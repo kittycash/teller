@@ -25,7 +25,7 @@ func (u *User) CanReserve() bool {
 	return len(u.Reservations) < maxReservation
 }
 
-// UserManager keeps tracks for user reservations
+// UserManager keeps tracks of user reservations
 type UserManager struct {
 	Users map[string]*User
 }
