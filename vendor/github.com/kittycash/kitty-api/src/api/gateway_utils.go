@@ -33,6 +33,7 @@ func (e *EntryIn) Check() error {
 		return errors.New("no kitty_id or kitty_dna is provided")
 	}
 	if e.UseKittyDNA {
+		return errors.New("searching by 'kitty_dna' is not supported yet")
 		// TODO: Check KittyDNA.
 	}
 	return nil
@@ -77,10 +78,10 @@ var (
 )
 
 type EntriesIn struct {
-	Filters    *database.Filters // nil = no filters
-	Order      *database.Sorters // nil = default order (by kittyID)
-	StartIndex int               `default:"0"`
-	PageSize   int               `default:"10"`
+	Filters  *database.Filters // nil = no filters
+	Order    *database.Sorters // nil = default order (by kittyID)
+	Offset   int `default:"0"`
+	PageSize int `default:"10"`
 }
 
 func (e *EntriesIn) checkPage() error {
@@ -97,17 +98,19 @@ func (e *EntriesIn) checkPage() error {
 
 func GetEntriesIn(qs url.Values) (*EntriesIn, error) {
 	var (
-		err         error
-		in          = new(EntriesIn)
+		err error
+		in  = &EntriesIn{
+			Filters: database.NewFilters(),
+			Order:   database.NewSorters(),
+		}
 		filterPrice = qs.Get("filter_price")
 		filterDate  = qs.Get("filter_date")
 		order       = qs.Get("order")
-		startIndex  = qs.Get("start_index")
+		offset      = qs.Get("offset")
 		pageSize    = qs.Get("page_size")
 	)
 
 	if hasPF, hasDF := filterPrice != "", filterDate != ""; hasPF || hasDF {
-		in.Filters = database.NewFilters()
 
 		if hasPF {
 			var parts = strings.Split(filterPrice, ",")
@@ -169,7 +172,6 @@ func GetEntriesIn(qs url.Values) (*EntriesIn, error) {
 	}
 
 	if order != "" {
-		in.Order = database.NewSorters()
 		for _, v := range strings.Split(order, ",") {
 			if err := in.Order.Add(database.Sorter(v)); err != nil {
 				return nil, err
@@ -177,20 +179,21 @@ func GetEntriesIn(qs url.Values) (*EntriesIn, error) {
 		}
 	}
 
-	in.StartIndex, err = strconv.Atoi(startIndex)
+	in.Offset, err = strconv.Atoi(offset)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("please provide a valid 'offset' query")
 	}
 
 	in.PageSize, err = strconv.Atoi(pageSize)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("please provide a valid 'page_size' query")
 	}
 
 	return in, nil
 }
 
 type EntriesOut struct {
-	Count   int               `json:"count"`
-	Entries []*database.Entry `json:"entries"`
+	TotalCount int64             `json:"total_count"`
+	PageCount  int               `json:"page_count"`
+	Entries    []*database.Entry `json:"entries"`
 }

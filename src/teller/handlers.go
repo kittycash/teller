@@ -166,9 +166,9 @@ type ReserveResponse struct {
 }
 
 type reservationRequest struct {
-	UserAddress string `json:"user_address"`
-	KittyID     string `json:"kitty_id"`
-	CoinType    string `json:"coin_type"`
+	UserAddress      string `json:"user_address"`
+	KittyID          string `json:"kitty_id"`
+	CoinType         string `json:"coin_type"`
 	VerificationCode string `json:"verification_code"`
 }
 
@@ -230,7 +230,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		}
 
 		err := s.service.agentManager.MakeReservation(reserveReq.UserAddress,
-		reserveReq.KittyID, reserveReq.CoinType, reserveReq.VerificationCode)
+			reserveReq.KittyID, reserveReq.CoinType, reserveReq.VerificationCode)
 		if err != nil {
 			log.WithError(err).Error("s.agent.MakeReservation failed")
 			switch err {

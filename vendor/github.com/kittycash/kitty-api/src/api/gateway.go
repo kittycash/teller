@@ -7,7 +7,7 @@ import (
 	"github.com/kittycash/kitty-api/src/database"
 )
 
-func ServePublic(db database.Database) *http.ServeMux {
+func ServePublic(db database.DBPublic) *http.ServeMux {
 	var m = http.NewServeMux()
 	Handle(m, "/api/count", "GET", count(db))
 	Handle(m, "/api/entry", "GET", entry(db))
@@ -15,7 +15,7 @@ func ServePublic(db database.Database) *http.ServeMux {
 	return m
 }
 
-func count(db database.Database) HandlerFunc {
+func count(db database.DBPublic) HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		count, err := db.Count(r.Context())
 		if err != nil {
@@ -28,7 +28,7 @@ func count(db database.Database) HandlerFunc {
 	}
 }
 
-func entry(db database.Database) HandlerFunc {
+func entry(db database.DBPublic) HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		in, err := GetEntryIn(r.URL.Query())
 		if err != nil {
@@ -58,22 +58,23 @@ func entry(db database.Database) HandlerFunc {
 	}
 }
 
-func entries(db database.Database) HandlerFunc {
+func entries(db database.DBPublic) HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		in, err := GetEntriesIn(r.URL.Query())
 		if err != nil {
 			return sendJson(w, http.StatusBadRequest,
 				fmt.Sprintf("Error: %s", err.Error()))
 		}
-		entries, err := db.GetEntries(r.Context(),
-			in.StartIndex, in.PageSize, in.Filters, in.Order)
+		total, entries, err := db.GetEntries(r.Context(),
+			in.Offset, in.PageSize, in.Filters, in.Order)
 		if err != nil {
 			return sendJson(w, http.StatusBadRequest,
 				fmt.Sprintf("Error: %s", err.Error()))
 		}
 		return sendJson(w, http.StatusOK, EntriesOut{
-			Count:   len(entries),
-			Entries: entries,
+			TotalCount: total,
+			PageCount:  len(entries),
+			Entries:    entries,
 		})
 	}
 }

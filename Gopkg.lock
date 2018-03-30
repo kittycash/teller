@@ -158,9 +158,10 @@
   packages = [
     "src/api",
     "src/database",
-    "src/database/redisdb"
+    "src/database/redisdb",
+    "src/rpc"
   ]
-  revision = "05e380b156de82185fbc0de34c3e93afc4331395"
+  revision = "8dacdf765a2fb88c7af6ae4c146a5cf8122087e0"
 
 [[projects]]
   branch = "master"
@@ -481,6 +482,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1debbc40f4b76b20de58c7e4dabefb0bd1b65ca2c89ed4db371623b4e40aa16e"
+  inputs-digest = "d5ed1e276916b7af493619b2fac41c52d58b15a53b1a8bc78856bb87aac0d3fe"
   solver-name = "gps-cdcl"
   solver-version = 1

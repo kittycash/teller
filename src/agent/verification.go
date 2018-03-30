@@ -16,9 +16,10 @@ const (
 )
 
 var (
-	ErrVerificationFailed          = errors.New("unable to verify code")
-	ErrSatisfyFailed               = errors.New("unable to satisfy code")
-	ErrVerificationRequestTimedOut = errors.New("verification request timed out")
+	ErrVerificationFailed    = errors.New("unable to verify code")
+	ErrSatisfyFailed         = errors.New("unable to satisfy code")
+	ErrVerifyRequestTimedOut = errors.New("verify request timed out")
+	ErrSatisfyRequestTimeOut = errors.New("satisfy request timed out")
 )
 
 // VerificationService interface
@@ -34,8 +35,13 @@ type Verifier struct {
 	log    logrus.FieldLogger
 }
 
-type VerificationServiceRequest struct {
+type VerifyRequest struct {
 	Code string `json:"code"`
+}
+
+type SatisfyRequest struct {
+	Code   string `json:"code"`
+	KittID string `json:"kitt_id"`
 }
 
 // NewVerifier creates a new verifier instance
@@ -50,7 +56,7 @@ func NewVerifier(log logrus.FieldLogger) *Verifier {
 
 // VerifyCode verifies the reservation code with verfication service
 func (v *Verifier) VerifyCode(code string) error {
-	verificationRequest, err := json.Marshal(VerificationServiceRequest{
+	verificationRequest, err := json.Marshal(VerifyRequest{
 		code,
 	})
 	if err != nil {
@@ -70,7 +76,7 @@ func (v *Verifier) VerifyCode(code string) error {
 	case http.StatusNoContent:
 		break
 	case http.StatusRequestTimeout:
-		return ErrVerificationRequestTimedOut
+		return ErrVerifyRequestTimedOut
 	default:
 		return ErrVerificationFailed
 	}
@@ -79,9 +85,10 @@ func (v *Verifier) VerifyCode(code string) error {
 }
 
 // SatisfyCode is called after reservation is completed
-func (v *Verifier) SatisfyCode(code string) error {
-	satisfyRequest, err := json.Marshal(VerificationServiceRequest{
+func (v *Verifier) SatisfyCode(code string, kittyID string) error {
+	satisfyRequest, err := json.Marshal(SatisfyRequest{
 		code,
+		kittyID,
 	})
 	if err != nil {
 		v.log.WithError(err).Error("unable to marshal satisfy request")
@@ -100,7 +107,7 @@ func (v *Verifier) SatisfyCode(code string) error {
 	case http.StatusNoContent:
 		break
 	case http.StatusRequestTimeout:
-		return ErrVerificationRequestTimedOut
+		return ErrSatisfyRequestTimeOut
 	default:
 		return ErrSatisfyFailed
 	}
