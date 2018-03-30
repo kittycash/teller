@@ -35,10 +35,12 @@ type Verifier struct {
 	log    logrus.FieldLogger
 }
 
+// VerifyRequest is the structure of a verification request
 type VerifyRequest struct {
 	Code string `json:"code"`
 }
 
+// SatisfyRequest is the structure of a satisfy request
 type SatisfyRequest struct {
 	Code   string `json:"code"`
 	KittID string `json:"kitt_id"`
@@ -54,7 +56,7 @@ func NewVerifier(log logrus.FieldLogger) *Verifier {
 	}
 }
 
-// VerifyCode verifies the reservation code with verfication service
+// VerifyCode verifies the reservation code with verification service
 func (v *Verifier) VerifyCode(code string) error {
 	verificationRequest, err := json.Marshal(VerifyRequest{
 		code,

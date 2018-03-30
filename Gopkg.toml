@@ -48,16 +48,16 @@
   version = "1.2.1"
 
 [[constraint]]
-  name = "github.com/sirupsen/logrus"
-  version = "v1.0.3"
-
-[[constraint]]
   name = "github.com/gz-c/logrus-prefixed-formatter"
   version = "v0.7.1"
 
 [[constraint]]
   name = "github.com/gz-c/tollbooth"
   version = "v2.3.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "v1.0.3"
 
 [[constraint]]
   name = "github.com/gomodule/redigo"

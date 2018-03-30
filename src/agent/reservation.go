@@ -46,6 +46,8 @@ type Reservation struct {
 	KittyID string
 	// Status of the reservation
 	Status string
+	// Amount to be paid in btc or sky, stored in smallest unit i.e, satoshi for btc or dropet for sky.
+	PaymentAmount int64
 	// Payment currency
 	CoinType string
 	// Expire defines after when a reservation expires
@@ -116,12 +118,12 @@ func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status str
 	rm.Reservations[kittyID].Status = status
 }
 
-//TODO (therealssj): make this a single transaction
 // MakeReservation reserves a kitty box
 // Args:
 // userAddress: Address of the user reserving the box
 // kittyID: ID of kitty in the reservation box
 // cointype: payment cointype
+//TODO (therealssj): make this a single transaction
 func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string, verificationCode string) error {
 	// verify the verification code
 	err := a.Verifier.VerifyCode(verificationCode)
@@ -192,7 +194,7 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 	})
 
 	// satisfy the verification code
-	return a.Verifier.SatisfyCode(verificationCode)
+	return a.Verifier.SatisfyCode(verificationCode, reservation.KittyID)
 }
 
 // CancelReservation cancels a kitty reservation
