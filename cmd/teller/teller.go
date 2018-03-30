@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/google/gops/agent"
-
 	"github.com/skycoin/skycoin/src/cipher"
 
 	"github.com/boltdb/bolt"
@@ -207,7 +206,7 @@ func run() error {
 		scanService.(*scanner.DummyScanner).BindHandlers(dummyMux)
 	} else {
 		// enable btc scanner
-		if cfg.BtcRPC.Enabled {
+		if cfg.BtcScanner.Enabled {
 			btcScanner, err = createBtcScanner(rusloggger, cfg, scanStore)
 			if err != nil {
 				log.WithError(err).Error("create btc scanner failed")
@@ -219,7 +218,7 @@ func run() error {
 		}
 
 		// create sky scanner if its enabled
-		if cfg.SkyRPC.Enabled {
+		if cfg.SkyScanner.Enabled {
 			skyScanner, err = createSkyScanner(rusloggger, cfg, scanStore)
 			if err != nil {
 				log.WithError(err).Error("create sky scanner failed")
@@ -290,7 +289,7 @@ func run() error {
 	//create AddrManager
 	addrManager := addrs.NewAddrManager()
 
-	if cfg.BtcRPC.Enabled {
+	if cfg.BtcScanner.Enabled {
 		// create bitcoin address manager
 		f, err := ioutil.ReadFile(cfg.BtcAddresses)
 		if err != nil {
@@ -309,7 +308,7 @@ func run() error {
 		}
 	}
 
-	if cfg.SkyRPC.Enabled {
+	if cfg.SkyScanner.Enabled {
 		// create sky address manager
 		f, err := ioutil.ReadFile(cfg.SkyAddresses)
 		if err != nil {
@@ -336,7 +335,9 @@ func run() error {
 	}
 
 	// create a new agent manager instance
-	agentCfg := kittyagent.Config{}
+	agentCfg := kittyagent.Config{
+		KittyAPIAddress: "127.0.0.1:7000",
+	}
 	agentManager := kittyagent.New(log, agentCfg, agentStore)
 
 	tellerServer := teller.New(log, exchangeClient, addrManager, agentManager, cfg)

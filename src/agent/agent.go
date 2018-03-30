@@ -4,6 +4,7 @@ package agent
 import (
 	"strconv"
 
+	"github.com/kittycash/kitty-api/src/database"
 	"github.com/kittycash/kitty-api/src/rpc"
 	"github.com/sirupsen/logrus"
 )
@@ -18,7 +19,7 @@ const (
 
 // Config defines the agent config
 type Config struct {
-	KittyAPIConfig rpc.ClientConfig
+	KittyAPIAddress string
 }
 
 // Manager provides APIs to interact with the agent service
@@ -49,15 +50,17 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 	var rm ReservationManager
 
 	verifier := NewVerifier(log)
-	kittyAPICLient := NewKittyAPI(&cfg.KittyAPIConfig, log)
+	kittyAPICLient := NewKittyAPI(&rpc.ClientConfig{
+		Address: cfg.KittyAPIAddress,
+	}, log)
 
 	// get 100 kitties from the start
 	// no filters or sorters
 	entries, err := kittyAPICLient.c.Entries(&rpc.EntriesIn{
 		Offset:   0,
 		PageSize: 100,
-		Filters:  nil,
-		Sorters:  nil,
+		Filters:  &database.Filters{},
+		Sorters:  &database.Sorters{},
 	})
 	// panic if we are not able to fetch kitties from kitty api
 	if err != nil {
