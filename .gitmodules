@@ -1,4 +1,0 @@
-[submodule "kitty-api"]
-	path = kitty-api
-	url = git@github.com:kittycash/kitty-api.git
-	branch = develop

@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-	"github.com/kittycash/kitty-api/src/rpc"
-	"github.com/kittycash/wallet/src/iko"
 )
 
 //TODO (therealssj): handle reservation expiry
@@ -186,12 +184,12 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		return err
 	}
 
-	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
+	//ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
 	//TODO (therealssj): add error handling
-	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-		KittyID:     ikoKittyID,
-		Reservation: reservation.Status,
-	})
+	//a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
+	//	KittyID:     ikoKittyID,
+	//	Reservation: reservation.Status,
+	//})
 
 	// satisfy the verification code
 	return a.Verifier.SatisfyCode(verificationCode, reservation.KittyID)
@@ -233,11 +231,11 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 		return ErrReservationNotFound
 	}
 
-	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
-	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-		KittyID:     ikoKittyID,
-		Reservation: reservation.Status,
-	})
+	//ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
+	//a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
+	//	KittyID:     ikoKittyID,
+	//	Reservation: reservation.Status,
+	//})
 	return nil
 }
 

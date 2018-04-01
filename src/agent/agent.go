@@ -2,10 +2,6 @@
 package agent
 
 import (
-	"strconv"
-
-	"github.com/kittycash/kitty-api/src/database"
-	"github.com/kittycash/kitty-api/src/rpc"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,7 +37,7 @@ type Agent struct {
 	ReservationManager *ReservationManager
 	UserManager        *UserManager
 	Verifier           *Verifier
-	KittyAPI           *KittyAPIClient
+	//KittyAPI           *KittyAPIClient
 }
 
 // New creates a new agent service
@@ -49,36 +45,39 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 	var um UserManager
 	var rm ReservationManager
 
+	rm.Reservations = make(map[string]*Reservation, 1)
 	verifier := NewVerifier(log)
-	kittyAPICLient := NewKittyAPI(&rpc.ClientConfig{
-		Address: cfg.KittyAPIAddress,
-	}, log)
+	//kittyAPICLient := NewKittyAPI(&rpc.ClientConfig{
+	//	Address: cfg.KittyAPIAddress,
+	//}, log)
 
 	// get 100 kitties from the start
 	// no filters or sorters
-	entries, err := kittyAPICLient.c.Entries(&rpc.EntriesIn{
-		Offset:   0,
-		PageSize: 100,
-		Filters:  &database.Filters{},
-		Sorters:  &database.Sorters{},
-	})
+	//entries, err := kittyAPICLient.c.Entries(&rpc.EntriesIn{
+	//	Offset:   0,
+	//	PageSize: 100,
+	//})
 	// panic if we are not able to fetch kitties from kitty api
-	if err != nil {
-		log.Panic(err)
-	}
+	//if err != nil {
+	//	log.Panic(err)
+	//}
+	//
+	//for _, entry := range entries.Results {
+	//	kittyID := strconv.Itoa(int(entry.ID))
+	//	// panic if we come across a faulty kittyid
+	//	if err != nil {
+	//		log.Panic(err)
+	//	}
+	//	rm.Reservations[kittyID] = &Reservation{
+	//		KittyID: kittyID,
+	//		Status:  entry.Reservation,
+	//	}
+	//}
 
-	for _, entry := range entries.Results {
-		kittyID := strconv.Itoa(int(entry.ID))
-		// panic if we come across a faulty kittyid
-		if err != nil {
-			log.Panic(err)
-		}
-		rm.Reservations[kittyID] = &Reservation{
-			KittyID: kittyID,
-			Status:  entry.Reservation,
-		}
+	rm.Reservations["9"] = &Reservation{
+		KittyID: "9",
+		Status:  "available",
 	}
-
 	users, _ := store.GetUsers()
 	for _, u := range users {
 		um.Users[u.Address] = &u
@@ -91,6 +90,6 @@ func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
 		ReservationManager: &rm,
 		UserManager:        &um,
 		Verifier:           verifier,
-		KittyAPI:           kittyAPICLient,
+		//KittyAPI:           kittyAPICLient,
 	}
 }
