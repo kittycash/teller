@@ -1,41 +1,39 @@
 package database
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/kittycash/wallet/src/iko"
 	"github.com/pkg/errors"
-	"github.com/skycoin/skycoin/src/cipher"
 	"golang.org/x/net/context"
 )
 
 type DBPublic interface {
 	Count(ctx context.Context) (int64, error)
 
-	GetEntryOfID(ctx context.Context, kittyID iko.KittyID) (*Entry, error)
-	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*Entry, error)
+	GetEntryOfID(ctx context.Context, kittyID iko.KittyID) (*iko.KittyEntry, error)
+	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
 		startIndex, pageSize int,
-		filters *Filters, sorters *Sorters) (int64, []*Entry, error)
+		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 }
 
 type Database interface {
-	Add(ctx context.Context, entry *Entry) error
-	MultiAdd(ctx context.Context, entries []*Entry) error
+	Add(ctx context.Context, entry *iko.KittyEntry) error
+	MultiAdd(ctx context.Context, entries []*iko.KittyEntry) error
 
 	Count(ctx context.Context) (int64, error)
 
-	GetEntryOfID(ctx context.Context, kittyID iko.KittyID) (*Entry, error)
-	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*Entry, error)
+	GetEntryOfID(ctx context.Context, kittyID iko.KittyID) (*iko.KittyEntry, error)
+	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
 		startIndex, pageSize int,
-		filters *Filters, sorters *Sorters) (int64, []*Entry, error)
+		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 
 	SetReservationOfEntry(ctx context.Context,
-		kittyID iko.KittyID, reservation string) (*Entry, error)
+		kittyID iko.KittyID, reservation string) (*iko.KittyEntry, error)
 }
 
 // Filter is used to filter a set of entries.
@@ -62,6 +60,24 @@ func NewFilters() *Filters {
 	return &Filters{
 		m: make(map[string]Filter),
 	}
+}
+
+type RPCFilter struct {
+	Key    string
+	Filter Filter
+}
+
+type RPCFilters []RPCFilter
+
+func (f RPCFilters) ToFilters() (*Filters, error) {
+	filters := NewFilters()
+	for i, v := range f {
+		if err := filters.Add(v.Key, v.Filter); err != nil {
+			return nil, errors.WithMessage(err,
+				fmt.Sprintf("failed at index %d", i))
+		}
+	}
+	return filters, nil
 }
 
 var (
@@ -139,6 +155,19 @@ type Sorters struct {
 	m map[Sorter]struct{}
 }
 
+type RPCSorters []Sorter
+
+func (s RPCSorters) ToSorters() (*Sorters, error) {
+	sorters := NewSorters()
+	for i, v := range s {
+		if err := sorters.Add(v); err != nil {
+			return nil, errors.WithMessage(err,
+				fmt.Sprintf("failed at index %d", i))
+		}
+	}
+	return sorters, nil
+}
+
 func NewSorters() *Sorters {
 	return &Sorters{
 		m: make(map[Sorter]struct{}),
@@ -176,48 +205,22 @@ func (s *Sorters) Range(action SorterAction) error {
 
 /*
 type Kitty struct {
-	ID    KittyID `json:"kitty_id"`    // Identifier for kitty.
-	Name  string  `json:"name"`        // Name of kitty.
-	Desc  string  `json:"description"` // Description of kitty.
-	Breed string  `json:"breed"`       // Kitty breed.
+	ID        KittyID `json:"kitty_id"`    // Identifier for kitty.
+	Name      string  `json:"name"`        // Name of kitty.
+	Desc      string  `json:"description"` // Description of kitty.
+	Breed     string  `json:"breed"`       // Kitty breed.
+	Legendary bool    `json:"legendary"`   // Whether kitty is legendary.
 
-	PriceBTC    int64  `json:"price_btc"`   // Price of kitty in BTC.
-	PriceSKY    int64  `json:"price_sky"`   // Price of kitty in SKY.
+	PriceBTC int64 `json:"price_btc"` // Price of kitty in BTC.
+	PriceSKY int64 `json:"price_sky"` // Price of kitty in SKY.
 
-	BoxOpen   bool   `json:"box_open"`    // Whether box is open.
-	BirthDate int64  `json:"birth_date"` // Timestamp of box opening.
-	KittyDNA  string `json:"kitty_dna"`  // Hex representation of kitty DNA (after box opening).
+	BoxOpen bool `json:"box_open"` // Whether box is open.
 
-	BoxImgURL   string `json:"box_image_url"`   // Box image URL.
-	KittyImgURL string `json:"kitty_image_url"` // Kitty image URL.
+	Created   int64  `json:"created,omitempty"`    // Timestamp that the kitty box began existing.
+	BirthDate int64  `json:"birth_date,omitempty"` // Timestamp of box opening (after box opening).
+	KittyDNA  string `json:"kitty_dna,omitempty"`  // Hex representation of kitty DNA (after box opening).
+
+	BoxImgURL   string `json:"box_image_url,omitempty"`   // Box image URL.
+	KittyImgURL string `json:"kitty_image_url,omitempty"` // Kitty image URL (after box opening).
 }
 */
-
-type Entry struct {
-	iko.Kitty
-	Sig         string `json:"sig"`
-	Reservation string `json:"reservation"` // Whether kitty is reserved or not.
-}
-
-func EntryFromJson(raw []byte) (*Entry, error) {
-	out := new(Entry)
-	err := json.Unmarshal(raw, out)
-	return out, err
-}
-
-func (e *Entry) Json() []byte {
-	raw, _ := json.Marshal(e)
-	return raw
-}
-
-func (e *Entry) Sign(sk cipher.SecKey) {
-	e.Sig = e.Kitty.Sign(sk).Hex()
-}
-
-func (e *Entry) Verify(pk cipher.PubKey) error {
-	sig, err := cipher.SigFromHex(e.Sig)
-	if err != nil {
-		return err
-	}
-	return e.Kitty.Verify(pk, sig)
-}

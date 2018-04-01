@@ -16,25 +16,25 @@ type Gateway struct {
 }
 
 type EntryIn struct {
-	Entry *database.Entry
+	Entry *iko.KittyEntry
 }
 
 func (g *Gateway) AddEntry(in *EntryIn, _ *struct{}) error {
-	if err := in.Entry.Verify(g.pk); err != nil {
+	if err := checkEntry(in.Entry, g.pk); err != nil {
 		return err
 	}
 	return g.db.Add(context.Background(), in.Entry)
 }
 
 type AddEntriesIn struct {
-	Entries []*database.Entry
+	Entries []*iko.KittyEntry
 }
 
 func (g *Gateway) AddEntries(in *AddEntriesIn, _ *struct{}) error {
 	for i, entry := range in.Entries {
-		if err := entry.Verify(g.pk); err != nil {
-			return errors.WithMessage(err,
-				fmt.Sprintf("failed at index '%d'", i))
+		if err := checkEntry(entry, g.pk); err != nil {
+			return errors.WithMessage(err, fmt.Sprintf(
+				"failed at index '%d'", i))
 		}
 	}
 	return g.db.MultiAdd(context.Background(), in.Entries)
@@ -58,7 +58,7 @@ type EntryOfIDIn struct {
 }
 
 type EntryOfIDOut struct {
-	Entry *database.Entry
+	Entry *iko.KittyEntry
 }
 
 func (g *Gateway) EntryOfID(in *EntryOfIDIn, out *EntryOfIDOut) error {
@@ -75,7 +75,7 @@ type EntryOfDNAIn struct {
 }
 
 type EntryOfDNAOut struct {
-	Entry *database.Entry
+	Entry *iko.KittyEntry
 }
 
 func (g *Gateway) EntryOfDNA(in *EntryOfDNAIn, out *EntryOfDNAOut) error {
@@ -88,20 +88,30 @@ func (g *Gateway) EntryOfDNA(in *EntryOfDNAIn, out *EntryOfDNAOut) error {
 }
 
 type EntriesIn struct {
-	Offset int
+	Offset   int
 	PageSize int
-	Filters *database.Filters
-	Sorters *database.Sorters
+	Filters  database.RPCFilters
+	Sorters  database.RPCSorters
 }
 
 type EntriesOut struct {
 	TotalCount int64
-	Results    []*database.Entry
+	Results    []*iko.KittyEntry
 }
 
 func (g *Gateway) Entries(in *EntriesIn, out *EntriesOut) error {
+	filters, err := in.Filters.ToFilters()
+	if err != nil {
+		return errors.WithMessage(err,
+			"failed to generate filters")
+	}
+	sorters, err := in.Sorters.ToSorters()
+	if err != nil {
+		return errors.WithMessage(err,
+			"failed to generate sorters")
+	}
 	count, res, err := g.db.GetEntries(context.Background(),
-		in.Offset, in.PageSize, in.Filters, in.Sorters)
+		in.Offset, in.PageSize, filters, sorters)
 	if err != nil {
 		return err
 	}
@@ -116,7 +126,7 @@ type ReservationIn struct {
 }
 
 type ReservationOut struct {
-	Entry *database.Entry
+	Entry *iko.KittyEntry
 }
 
 func (g *Gateway) SetReservation(in *ReservationIn, out *ReservationOut) error {
@@ -126,5 +136,19 @@ func (g *Gateway) SetReservation(in *ReservationIn, out *ReservationOut) error {
 		return err
 	}
 	out.Entry = entry
+	return nil
+}
+
+/*
+	<<< HELPER FUNCTIONS >>>
+*/
+
+func checkEntry(entry *iko.KittyEntry, pk cipher.PubKey) error {
+	if err := entry.CheckData(); err != nil {
+		return err
+	}
+	if err := entry.Verify(pk); err != nil {
+		return err
+	}
 	return nil
 }

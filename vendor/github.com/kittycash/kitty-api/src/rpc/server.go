@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	PrefixName = "kc_api_rpc"
+	PrefixName  = "kc_api_rpc"
 	NetworkName = "tcp"
 )
 
@@ -26,7 +26,7 @@ func (sc *ServerConfig) ExtractTrustedPK() (cipher.PubKey, error) {
 type Server struct {
 	rpc *rpc.Server
 	lis net.Listener
-	wg sync.WaitGroup
+	wg  sync.WaitGroup
 }
 
 func NewServer(c *ServerConfig, db database.Database) (*Server, error) {
