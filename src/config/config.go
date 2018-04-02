@@ -23,7 +23,7 @@ type Config struct {
 	Profile bool `mapstructure:"profile"`
 	// Where log is saved
 	LogFilename string `mapstructure:"logfile"`
-	// Where database is saved, inside the ~/.teller-skycoin data directory
+	// Where database is saved, inside the ~/.teller-kittycash data directory
 	DBFilename string `mapstructure:"dbfile"`
 
 	// Path of BTC addresses JSON file
@@ -49,6 +49,10 @@ type Config struct {
 	SecKey string `mapstructure:"secret_key"`
 
 	Dummy Dummy `mapstructure:"dummy"`
+
+	KittyApi KittyApi `mapstructure:"kitty_api"`
+
+	VerificationService VerificationService `mapstructure:"verification_service"`
 }
 
 // Teller config for teller
@@ -174,6 +178,14 @@ type Dummy struct {
 	HTTPAddr string `mapstructure:"http_addr"`
 }
 
+type KittyApi struct {
+	Address string `mapstructure:"address"`
+}
+
+type VerificationService struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 // Redacted returns a copy of the config with sensitive information redacted
 func (c Config) Redacted() Config {
 	if c.BtcRPC.User != "" {
@@ -279,8 +291,8 @@ func setDefaults() {
 	// Top-level args
 	viper.SetDefault("profile", false)
 	viper.SetDefault("debug", true)
-	viper.SetDefault("logfile", "./teller.log")
-	viper.SetDefault("dbfile", "teller.db")
+	viper.SetDefault("logfile", "./kittyteller.log")
+	viper.SetDefault("dbfile", "kittyteller.db")
 
 	// Teller
 	viper.SetDefault("teller.max_bound_btc_addrs", 5)
@@ -306,7 +318,6 @@ func setDefaults() {
 
 	// Web
 	viper.SetDefault("web.http_addr", "127.0.0.1:7071")
-	viper.SetDefault("web.static_dir", "./web/build")
 	viper.SetDefault("web.throttle_max", int64(60))
 	viper.SetDefault("web.throttle_duration", time.Minute)
 
@@ -317,6 +328,12 @@ func setDefaults() {
 	viper.SetDefault("dummy.http_addr", "127.0.0.1:4121")
 	viper.SetDefault("dummy.scanner", false)
 	viper.SetDefault("dummy.sender", false)
+
+	// KittyAPI RPC
+	viper.SetDefault("kitty_api.address", "127.0.0.1:7000")
+
+	// Verification service
+	viper.SetDefault("verification_service.enabled", false)
 }
 
 // Load loads the configuration from "./$configName.*" where "*" is a

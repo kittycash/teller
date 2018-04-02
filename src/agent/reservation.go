@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"github.com/kittycash/kitty-api/src/rpc"
+	"github.com/kittycash/wallet/src/iko"
 )
 
 //TODO (therealssj): handle reservation expiry
@@ -27,7 +29,7 @@ var (
 const (
 	// Available reservation
 	// newly added reversation or when a reservation expires is set to available
-	Available = "available"
+	Available = "NONE"
 	// Reserved reservation
 	Reserved = "reserved"
 	// Delivered means the box of this reservation has been sent to a user
@@ -37,24 +39,26 @@ const (
 // Reservation is a reservation instance for a kitty box
 type Reservation struct {
 	// DepositAddress is where the buyer should send the payment
-	DepositAddress string
+	DepositAddress string `json:"deposit_address,omitempty"`
 	// address where we will send the kitty
-	OwnerAddress string
+	OwnerAddress string `json:"owner_address,omitempty"`
 	// KittyID is the unique ID of the kitty inside the box being reserved
-	KittyID string
+	KittyID string `json:"kitty_id,omitempty"`
 	// Status of the reservation
-	Status string
-	// Amount to be paid in btc or sky, stored in smallest unit i.e, satoshi for btc or dropet for sky.
-	PaymentAmount int64
+	Status string `json:"status,omitempty"`
+	// Amount to be paid in btc , stored in smallest unit i.e, satoshi
+	PriceBTC int64 `json:"price_btc,omitempty"`
+	// Amount to be paid in sly , stored in smallest unit i.e, droplet
+	PriceSKY int64 `json:"price_sky,omitempty"`
 	// Payment currency
-	CoinType string
+	CoinType string `json:"coin_type,omitempty"`
 	// Expire defines after when a reservation expires
-	Expire time.Time
+	Expire time.Time `json:"expire,omitempty"`
 }
 
 // ReservationManager keeps track of reservations in the iko
 type ReservationManager struct {
-	*sync.RWMutex
+	mux          sync.RWMutex
 	Reservations map[string]*Reservation
 }
 
@@ -70,8 +74,8 @@ func (r *Reservation) MakeAvailable() {
 
 // GetReservationByKittyID returns reservation of the kittyID
 func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservation, error) {
-	rm.RLock()
-	defer rm.RUnlock()
+	rm.mux.RLock()
+	defer rm.mux.RUnlock()
 
 	// check if the reservation exists
 	if _, ok := rm.Reservations[kittyID]; !ok {
@@ -83,8 +87,8 @@ func (rm *ReservationManager) GetReservationByKittyID(kittyID string) (*Reservat
 
 // GetReservations returns all reservations currently being tracked by reservation manager
 func (rm *ReservationManager) GetReservations() []Reservation {
-	rm.RLock()
-	defer rm.RUnlock()
+	rm.mux.RLock()
+	defer rm.mux.RUnlock()
 
 	var reservations []Reservation
 	for _, r := range rm.Reservations {
@@ -96,10 +100,9 @@ func (rm *ReservationManager) GetReservations() []Reservation {
 
 // GetReservationsByStatus returns all reservations of given status
 func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservation {
-	rm.RLock()
-	defer rm.RUnlock()
+	rm.mux.RLock()
+	defer rm.mux.RUnlock()
 	var reservations []Reservation
-
 	for _, r := range rm.Reservations {
 		if r.Status == status {
 			reservations = append(reservations, *r)
@@ -111,8 +114,8 @@ func (rm *ReservationManager) GetReservationsByStatus(status string) []Reservati
 
 // ChangeReservationStatus changes status of a reservation
 func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status string) {
-	rm.Lock()
-	defer rm.Unlock()
+	rm.mux.Lock()
+	defer rm.mux.Unlock()
 	rm.Reservations[kittyID].Status = status
 }
 
@@ -172,7 +175,7 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 	}
 
 	// update the reservation
-	if err := a.store.UpdateReservation(reservation.KittyID, reservation); err != nil {
+	if err := a.store.UpdateReservation(reservation); err != nil {
 		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 		return err
 	}
@@ -184,12 +187,12 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		return err
 	}
 
-	//ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
+	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
 	//TODO (therealssj): add error handling
-	//a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-	//	KittyID:     ikoKittyID,
-	//	Reservation: reservation.Status,
-	//})
+	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
+		KittyID:     ikoKittyID,
+		Reservation: reservation.Status,
+	})
 
 	// satisfy the verification code
 	return a.Verifier.SatisfyCode(verificationCode, reservation.KittyID)
@@ -212,7 +215,7 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 			reservation.MakeAvailable()
 			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
 			// update the reservation
-			if err := a.store.UpdateReservation(reservation.KittyID, reservation); err != nil {
+			if err := a.store.UpdateReservation(reservation); err != nil {
 				a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 				return err
 			}
@@ -230,12 +233,12 @@ func (a *Agent) CancelReservation(userAddress, kittyID string) error {
 	if reservation == nil {
 		return ErrReservationNotFound
 	}
-
-	//ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
-	//a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-	//	KittyID:     ikoKittyID,
-	//	Reservation: reservation.Status,
-	//})
+	//
+	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
+	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
+		KittyID:     ikoKittyID,
+		Reservation: reservation.Status,
+	})
 	return nil
 }
 

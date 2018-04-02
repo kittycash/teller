@@ -108,7 +108,7 @@ func run() error {
 		fmt.Println("Failed to get user's home directory:", err)
 		return err
 	}
-	defaultAppDir := filepath.Join(cur.HomeDir, ".teller-skycoin")
+	defaultAppDir := filepath.Join(cur.HomeDir, ".teller-kittycash")
 
 	appDirOpt := pflag.StringP("dir", "d", defaultAppDir, "application data directory")
 	configNameOpt := pflag.StringP("config", "c", "config", "name of configuration file")
@@ -336,7 +336,7 @@ func run() error {
 
 	// create a new agent manager instance
 	agentCfg := kittyagent.Config{
-		KittyAPIAddress: "127.0.0.1:7000",
+		KittyAPIAddress: cfg.KittyApi.Address,
 	}
 	agentManager := kittyagent.New(log, agentCfg, agentStore)
 
