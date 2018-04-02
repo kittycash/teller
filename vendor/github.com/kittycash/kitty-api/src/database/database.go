@@ -15,7 +15,7 @@ type DBPublic interface {
 	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
-		startIndex, pageSize int,
+		startIndex, pageSize int, query string,
 		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 }
 
@@ -29,7 +29,7 @@ type Database interface {
 	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
-		startIndex, pageSize int,
+		startIndex, pageSize int, query string,
 		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 
 	SetReservationOfEntry(ctx context.Context,

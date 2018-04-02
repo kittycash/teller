@@ -34,7 +34,8 @@ type Storer interface {
 	GetUser(userAddr string) (*User, error)
 	GetUserReservations(userAddr string) ([]Reservation, error)
 	UpdateUser(user *User) error
-	UpdateReservation(kittyID string, reservation *Reservation) error
+	UpdateReservation(reservation *Reservation) error
+	UpdateReservations(reservations []*Reservation) error
 }
 
 // Store saves reservations and user data
@@ -109,7 +110,7 @@ func (s *Store) GetReservations() ([]Reservation, error) {
 // Args:
 // kittyID: ID of the kitty in the reservation box
 func (s *Store) GetReservationFromKittyID(kittyID string) (*Reservation, error) {
-	var reservation *Reservation
+	reservation := &Reservation{}
 
 	if err := s.db.View(func(tx *bolt.Tx) error {
 		return dbutil.GetBucketObject(tx, ReservationsKittyBkt, kittyID, reservation)
@@ -228,10 +229,25 @@ func (s *Store) UpdateUser(user *User) error {
 
 // UpdateReservation Updates a reservation
 // Args:
-// kittyID: ID of kitty in the reservation
-// reservation: object of reservation to be updated
-func (s *Store) UpdateReservation(kittyID string, reservation *Reservation) error {
+// reservation: reservation to be updated
+func (s *Store) UpdateReservation(reservation *Reservation) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return dbutil.PutBucketValue(tx, ReservationsKittyBkt, kittyID, reservation)
+		return dbutil.PutBucketValue(tx, ReservationsKittyBkt, reservation.KittyID, *reservation)
+	})
+}
+
+// UpdateReservations Updates a list of reservations
+// Args:
+// reservations: reservations to be updated
+func (s *Store) UpdateReservations(reservations []*Reservation) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		var err error
+		for _, r := range reservations {
+			err = dbutil.PutBucketValue(tx, ReservationsKittyBkt, r.KittyID, *r)
+			if err != nil {
+				break
+			}
+		}
+		return err
 	})
 }

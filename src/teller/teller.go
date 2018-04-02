@@ -28,7 +28,7 @@ type Teller struct {
 }
 
 // New creates a Teller
-func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, agentManager agent.Manager, cfg config.Config) *Teller {
+func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, agentManager *agent.Agent, cfg config.Config) *Teller {
 	return &Teller{
 		cfg:  cfg.Teller,
 		log:  log.WithField("prefix", "teller"),
@@ -78,7 +78,7 @@ type Service struct {
 	cfg          config.Teller
 	exchanger    exchange.Exchanger // exchange Teller client
 	addrManager  *addrs.AddrManager // address manager
-	agentManager agent.Manager      // agent manager
+	agentManager *agent.Agent       // agent manager
 }
 
 // BindAddress binds kittyID with a deposit address according to coinType

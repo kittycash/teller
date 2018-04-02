@@ -94,7 +94,21 @@ type ConfigResponse struct {
 // URI: /api/config
 func ConfigHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//TODO (therealssj): implement
+		ctx := r.Context()
+		log := logger.FromContext(ctx)
+
+		if !validMethod(ctx, w, r, []string{http.MethodGet}) {
+			return
+		}
+
+		if err := httputil.JSONResponse(w, ConfigResponse{
+			Enabled:                  s.cfg.Teller.BindEnabled,
+			MaxDecimals:              s.cfg.BoxExchanger.MaxDecimals,
+			MaxBoundAddresses:        s.cfg.Teller.MaxBoundAddresses,
+			BtcConfirmationsRequired: s.cfg.BtcScanner.ConfirmationsRequired,
+		}); err != nil {
+			log.WithError(err).Error()
+		}
 	}
 }
 
@@ -381,6 +395,7 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 		if err != nil {
 			log.WithError(err).Error("s.agent.GetReservations failed")
 			errorResponse(ctx, w, http.StatusInternalServerError, err)
+			return
 		}
 
 		if err := httputil.JSONResponse(w, ReservationsResponse{

@@ -144,7 +144,7 @@
     "src/database",
     "src/rpc"
   ]
-  revision = "e7246bc26ef9864f964cc5dbe85b3ef7c3afe940"
+  revision = "fe987200bfc0ca3d7307de38f0852761cf6cd481"
 
 [[projects]]
   branch = "master"
@@ -154,7 +154,7 @@
     "src/rpc",
     "src/util"
   ]
-  revision = "50d4c8bd282a97022f445e2d46286e8b7886f675"
+  revision = "f5e08af3e5d3c643b105684395583744eb0a09f7"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -334,8 +334,8 @@
     ".",
     "mem"
   ]
-  revision = "bb8f1927f2a9d3ab41c9340aa034f6b803f4359c"
-  version = "v1.0.2"
+  revision = "63644898a8da0bc22138abf860edaf5277b6102e"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/spf13/cast"
@@ -444,6 +444,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "67565bafbf139478aef3bde6c2cec4264c4faf5502d1642fdcd06d45d17ce8e3"
+  inputs-digest = "ff81fa0bdc990146665d67b8b61c6f3b6f447f781fb7150681094ff4606192ea"
   solver-name = "gps-cdcl"
   solver-version = 1

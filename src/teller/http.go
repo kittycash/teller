@@ -280,14 +280,11 @@ func (s *HTTPServer) setupMux() *http.ServeMux {
 	handleAPI("/api/status", ratelimit(httputil.LogHandler(s.log, StatusHandler(s))))
 	handleAPI("/api/config", httputil.LogHandler(s.log, ConfigHandler(s)))
 	handleAPI("/api/exchange-status", httputil.LogHandler(s.log, ExchangeStatusHandler(s)))
-	//@TODO endpoints need to be discussed
 	handleAPI("/api/reservation/reserve", httputil.LogHandler(s.log, MakeReservationHandler(s)))
 	handleAPI("/api/reservation/cancel", httputil.LogHandler(s.log, CancelReservationHandler(s)))
 	handleAPI("/api/reservation/getreservation", httputil.LogHandler(s.log, GetReservationsHandler(s)))
 	handleAPI("/api/reservation/getdepositaddress", httputil.LogHandler(s.log, GetDepositAddressHandler(s)))
 
-	// Static files
-	mux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir(s.cfg.Web.StaticDir))))
 	return mux
 }
 
