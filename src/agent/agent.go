@@ -21,6 +21,7 @@ const (
 // Config defines the agent config
 type Config struct {
 	KittyAPIAddress string
+	VerifierEnabled bool
 }
 
 // Manager provides APIs to interact with the agent service
@@ -47,9 +48,11 @@ type Agent struct {
 
 // New creates a new agent service
 func New(log logrus.FieldLogger, cfg Config, store Storer) *Agent {
-	var um UserManager
+	um := UserManager{
+		Users: make(map[string]*User),
+	}
 	var rm ReservationManager
-	verifier := NewVerifier(log)
+	verifier := NewVerifier(log, cfg.VerifierEnabled)
 	kittyAPICLient := NewKittyAPI(&rpc.ClientConfig{
 		Address: cfg.KittyAPIAddress,
 	}, log)

@@ -12,7 +12,7 @@ sky_addresses = "example_sky_addresses.json" # REQUIRED: path to eth addresses f
 
 [teller]
 # max_bound_addrs = 5 # 0 means unlimited
-# bind_enabled = true # Disable this to prevent binding of new addresses
+bind_enabled = true # Disable this to prevent binding of new addresses
 
 [sky_rpc]
 # address = "127.0.0.1:6430"

@@ -12,7 +12,7 @@ var (
 
 // User represent a kitty cash user
 type User struct {
-	*sync.Mutex `json:"-"`
+	mux sync.Mutex `json:"-"`
 	// Users skycoin address
 	Address string `json:"address"`
 	// A user can have multiple reservations
@@ -40,16 +40,15 @@ func (um *UserManager) GetUser(userAddr string) (*User, error) {
 	return u, nil
 }
 
-// AddReservation adds reservation to a usermanager
-func (um *UserManager) AddReservation(userAddr string, reservation *Reservation) error {
-	// Get the user and check whether he can reserve boxes
-	u, err := um.GetUser(userAddr)
-	if err != nil {
-		return err
-	}
+// GetUser returns a user from the usermanager
+func (um *UserManager) AddUser(user *User) {
+	um.Users[user.Address] = user
+}
 
-	u.Lock()
-	defer u.Unlock()
+// AddReservation adds reservation to a usermanager
+func (um *UserManager) AddReservation(u *User, reservation *Reservation) error {
+	u.mux.Lock()
+	defer u.mux.Unlock()
 	if !u.CanReserve() {
 		return ErrMaxReservationsExceeded
 	}

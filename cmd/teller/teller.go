@@ -337,6 +337,7 @@ func run() error {
 	// create a new agent manager instance
 	agentCfg := kittyagent.Config{
 		KittyAPIAddress: cfg.KittyApi.Address,
+		VerifierEnabled: cfg.VerificationService.Enabled,
 	}
 	agentManager := kittyagent.New(log, agentCfg, agentStore)
 

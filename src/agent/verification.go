@@ -31,8 +31,9 @@ type VerificationService interface {
 // Verifier verifies code that comes with a kitty reservation request with
 // the verification service.
 type Verifier struct {
-	client *http.Client
-	log    logrus.FieldLogger
+	client  *http.Client
+	log     logrus.FieldLogger
+	Enabled bool
 }
 
 // VerifyRequest is the structure of a verification request
@@ -47,17 +48,22 @@ type SatisfyRequest struct {
 }
 
 // NewVerifier creates a new verifier instance
-func NewVerifier(log logrus.FieldLogger) *Verifier {
+func NewVerifier(log logrus.FieldLogger, enabled bool) *Verifier {
 	return &Verifier{
 		client: &http.Client{
 			Timeout: VerifierTimeout,
 		},
-		log: log,
+		log:     log,
+		Enabled: enabled,
 	}
 }
 
 // VerifyCode verifies the reservation code with verification service
 func (v *Verifier) VerifyCode(code string) error {
+	if !v.Enabled {
+		return nil
+	}
+
 	verificationRequest, err := json.Marshal(VerifyRequest{
 		code,
 	})
@@ -88,6 +94,10 @@ func (v *Verifier) VerifyCode(code string) error {
 
 // SatisfyCode is called after reservation is completed
 func (v *Verifier) SatisfyCode(code string, kittyID string) error {
+	if !v.Enabled {
+		return nil
+	}
+
 	satisfyRequest, err := json.Marshal(SatisfyRequest{
 		code,
 		kittyID,

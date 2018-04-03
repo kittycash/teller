@@ -153,7 +153,7 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		default:
 			return ErrInvalidCoinType
 		}
-	case "delievered":
+	case Delivered:
 		fallthrough
 	default:
 		return ErrInvalidReservationType
@@ -162,15 +162,30 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 	// set the reservation as reserved
 	a.ReservationManager.ChangeReservationStatus(kittyID, Reserved)
 
-	err = a.UserManager.AddReservation(userAddr, reservation)
+	var u *User
+	u, err = a.UserManager.GetUser(userAddr)
 	if err != nil {
-		a.log.WithError(err).Error("UserManager.AddReservation failed")
-		return err
+		if err == ErrUserNotFound {
+			u = &User{
+				Address:      userAddr,
+				Reservations: []Reservation{},
+			}
+			err = a.store.AddUser(u)
+			if err != nil {
+				a.log.WithError(err).Error("Agent.Store.AddUser failed")
+				return err
+			}
+
+			a.UserManager.AddUser(u)
+		} else {
+			a.log.WithError(err).Error("UserManager.GetUser failed")
+			return err
+		}
 	}
 
-	u, err := a.UserManager.GetUser(userAddr)
+	err = a.UserManager.AddReservation(u, reservation)
 	if err != nil {
-		a.log.WithError(err).Error("UserManager.GetUser failed")
+		a.log.WithError(err).Error("UserManager.AddReservation failed")
 		return err
 	}
 
