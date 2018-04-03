@@ -30,6 +30,7 @@ type Storer interface {
 	GetReservationsByStatus(status string) ([]Reservation, error)
 	GetReservationFromKittyID(kittyID string) (*Reservation, error)
 	GetReservationUserFromKittyID(kittyID string) (*User, error)
+	AddUser(user *User) error
 	GetUsers() ([]User, error)
 	GetUser(userAddr string) (*User, error)
 	GetUserReservations(userAddr string) ([]Reservation, error)
@@ -169,6 +170,13 @@ func (s *Store) GetReservationsByStatus(status string) ([]Reservation, error) {
 	}
 
 	return reservations, nil
+}
+
+// Adduser adds a new user to the database
+func (s *Store) AddUser(user *User) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return dbutil.PutBucketValue(tx, UsersBkt, user.Address, user)
+	})
 }
 
 // GetUsers fetchs all the users from the database
