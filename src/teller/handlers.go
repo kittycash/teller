@@ -11,7 +11,7 @@ import (
 	"github.com/kittycash/kitty-api/src/rpc"
 	"github.com/kittycash/wallet/src/iko"
 	"github.com/sirupsen/logrus"
-	"github.com/spaco/spo/src/cipher"
+	"github.com/skycoin/skycoin/src/cipher"
 
 	"github.com/kittycash/teller/src/addrs"
 	"github.com/kittycash/teller/src/agent"
@@ -246,7 +246,11 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
-		cipher.DecodeBase58Address(reserveReq.UserAddress)
+		_, err := cipher.DecodeBase58Address(reserveReq.UserAddress)
+		if err != nil {
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("invalid user address"))
+			return
+		}
 
 		// Start a writable transaction.
 		tx, err := s.db.Begin(true)
@@ -419,15 +423,14 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 // GetDepositAddressResponse represents response of get deposit address request
 type GetDepositAddressResponse struct {
 	DepositAddress string `json:"deposit_address"`
-	KittyID        string `json:"kitty_id"`
+	KittyID        iko.KittyID `json:"kitty_id"`
 }
 
 // GetDepositAddressHandler gets deposit address of given kittyID
 // Method: GET
 // Accept: application/json
-// URI: /api/reservation/getdepositaddress?useraddr=?&kittyid=?
+// URI: /api/reservation/getdepositaddress?kittyid=?
 // Args:
-//    userAddr: user address
 //    kittyID: kitty ID of required kitty box
 func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -438,12 +441,6 @@ func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
 			httputil.ErrResponse(w, http.StatusMethodNotAllowed)
-			return
-		}
-
-		userAddr := r.URL.Query().Get("useraddr")
-		if userAddr == "" {
-			httputil.ErrResponse(w, http.StatusBadRequest)
 			return
 		}
 
@@ -460,9 +457,10 @@ func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
+		kittyid, _ := iko.KittyIDFromString(kittyID)
 		if err := httputil.JSONResponse(w, GetDepositAddressResponse{
 			DepositAddress: addr,
-			KittyID:     kittyID,
+			KittyID: kittyid,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}
