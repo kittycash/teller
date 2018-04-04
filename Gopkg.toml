@@ -59,6 +59,14 @@
   name = "github.com/sirupsen/logrus"
   version = "v1.0.3"
 
+[[constraint]]
+  name = "github.com/kittycash/kitty-api"
+  branch = "develop"
+
+[[constraint]]
+  name = "github.com/kittycash/wallet"
+  branch = "master"
+
 [[override]]
   branch = "master"
   name = "github.com/RedisLabs/redisearch-go"
