@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/config"
@@ -42,6 +43,7 @@ type Runner interface {
 // Exchanger provides APIs to interact with the exchange service
 type Exchanger interface {
 	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
+	BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error)
 	GetDepositStatuses(kittyID string) ([]DepositStatus, error)
 	GetDepositStatusDetail(flt DepositFilter) ([]DepositStatusDetail, error)
 	IsBound(kittyAddr string) bool
@@ -263,4 +265,8 @@ func (e *Exchange) Status() error {
 // to the btc/sky address, will send specific kitty box to the user who owns the box
 func (e *Exchange) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error) {
 	return e.Receiver.BindAddress(kittyID, depositAddr, coinType)
+}
+
+func (e *Exchange) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error) {
+	return e.Receiver.BindAddressWithTx(tx, kittyID, depositAddr, coinType)
 }

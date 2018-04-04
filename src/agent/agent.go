@@ -4,14 +4,12 @@ package agent
 import (
 	"strconv"
 
+	"github.com/boltdb/bolt"
 	"github.com/kittycash/kitty-api/src/rpc"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/util/dbutil"
 )
-
-//TODO (therealssj): implement limits
-//TODO (therealssj): improve data structures
 
 const (
 	// Max number of reservations a user can do
@@ -26,8 +24,7 @@ type Config struct {
 
 // Manager provides APIs to interact with the agent service
 type Manager interface {
-	MakeReservation(userAddress string, kittyID string, coinType string, verificationCode string) error
-	CancelReservation(userAddress, kittyID string) error
+	MakeReservation(tx *bolt.Tx, depositAddress, userAddress, kittyID, coinType, verificationCode string) error
 	GetReservations(status string) ([]Reservation, error)
 	GetReservation(kittyID string) (*Reservation, error)
 	GetKittyDepositAddress(kittyID string) (string, error)

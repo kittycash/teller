@@ -90,7 +90,6 @@ func (g *Gateway) EntryOfDNA(in *EntryOfDNAIn, out *EntryOfDNAOut) error {
 type EntriesIn struct {
 	Offset   int
 	PageSize int
-	Query    string
 	Filters  database.RPCFilters
 	Sorters  database.RPCSorters
 }
@@ -112,7 +111,7 @@ func (g *Gateway) Entries(in *EntriesIn, out *EntriesOut) error {
 			"failed to generate sorters")
 	}
 	count, res, err := g.db.GetEntries(context.Background(),
-		in.Offset, in.PageSize, in.Query, filters, sorters)
+		in.Offset, in.PageSize, filters, sorters)
 	if err != nil {
 		return err
 	}

@@ -1,15 +1,12 @@
 package agent
 
 import (
+	"fmt"
 	"sync"
-	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/go-errors/errors"
-	"github.com/kittycash/kitty-api/src/rpc"
-	"github.com/kittycash/wallet/src/iko"
 )
-
-//TODO (therealssj): handle reservation expiry
 
 var (
 	// ErrMaxReservationsExceeded represents that the user crossed his reservation limit
@@ -34,6 +31,8 @@ const (
 	Reserved = "reserved"
 	// Delivered means the box of this reservation has been sent to a user
 	Delivered = "delivered"
+	// All reservation boxes
+	All = "all"
 )
 
 // Reservation is a reservation instance for a kitty box
@@ -53,7 +52,7 @@ type Reservation struct {
 	// Payment currency
 	CoinType string `json:"coin_type,omitempty"`
 	// Expire defines after when a reservation expires
-	Expire time.Time `json:"expire,omitempty"`
+	Expire int64 `json:"expire,omitempty"`
 }
 
 // ReservationManager keeps track of reservations in the iko
@@ -70,6 +69,9 @@ func (r *Reservation) MakeReserved() {
 // MakeAvailable marks a reservation as available
 func (r *Reservation) MakeAvailable() {
 	r.Status = Available
+	r.Expire = 0
+	r.DepositAddress = ""
+	r.OwnerAddress = ""
 }
 
 // GetReservationByKittyID returns reservation of the kittyID
@@ -124,8 +126,7 @@ func (rm *ReservationManager) ChangeReservationStatus(kittyID string, status str
 // userAddress: Address of the user reserving the box
 // kittyID: ID of kitty in the reservation box
 // cointype: payment cointype
-//TODO (therealssj): make this a single transaction
-func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string, verificationCode string) error {
+func (a *Agent) MakeReservation(tx *bolt.Tx, depositAddr, userAddr, kittyID, cointype, verificationCode string) error {
 	// verify the verification code
 	err := a.Verifier.VerifyCode(verificationCode)
 	if err != nil {
@@ -159,9 +160,7 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		return ErrInvalidReservationType
 	}
 
-	// set the reservation as reserved
-	a.ReservationManager.ChangeReservationStatus(kittyID, Reserved)
-
+	// fetch user from user manager or create it if not found
 	var u *User
 	u, err = a.UserManager.GetUser(userAddr)
 	if err != nil {
@@ -170,7 +169,7 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 				Address:      userAddr,
 				Reservations: []Reservation{},
 			}
-			err = a.store.AddUser(u)
+			err = a.store.AddUserWithTx(tx, u)
 			if err != nil {
 				a.log.WithError(err).Error("Agent.Store.AddUser failed")
 				return err
@@ -183,78 +182,24 @@ func (a *Agent) MakeReservation(userAddr string, kittyID string, cointype string
 		}
 	}
 
-	err = a.UserManager.AddReservation(u, reservation)
-	if err != nil {
-		a.log.WithError(err).Error("UserManager.AddReservation failed")
-		return err
-	}
-
+	// set the reservation as reserved
+	a.ReservationManager.ChangeReservationStatus(kittyID, Reserved)
+	reservation.DepositAddress = depositAddr
+	reservation.OwnerAddress = userAddr
 	// update the reservation
-	if err := a.store.UpdateReservation(reservation); err != nil {
+	if err := a.store.UpdateReservationWithTx(tx, reservation); err != nil {
 		a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
 		return err
 	}
 
 	// update the user
-	err = a.store.UpdateUser(u)
+	err = a.store.UpdateUserWithTx(tx, u)
 	if err != nil {
 		a.log.WithError(err).Error("Storer.UpdateUser failed")
 		return err
 	}
 
-	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
-	//TODO (therealssj): add error handling
-	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-		KittyID:     ikoKittyID,
-		Reservation: reservation.Status,
-	})
-
-	// satisfy the verification code
-	return a.Verifier.SatisfyCode(verificationCode, reservation.KittyID)
-}
-
-// CancelReservation cancels a kitty reservation
-// Args:
-// userAddress: Address of the user reserving the box
-// kittyID: ID of kitty in the reservation box
-func (a *Agent) CancelReservation(userAddress, kittyID string) error {
-	user, err := a.UserManager.GetUser(userAddress)
-	if err != nil {
-		return err
-	}
-	var reservation *Reservation
-	for i := range user.Reservations {
-		if user.Reservations[i].KittyID == kittyID {
-			reservation = &user.Reservations[i]
-			// make the reservation available
-			reservation.MakeAvailable()
-			a.ReservationManager.ChangeReservationStatus(kittyID, Available)
-			// update the reservation
-			if err := a.store.UpdateReservation(reservation); err != nil {
-				a.log.WithError(err).Errorf("CancelReservation failed for %s", reservation.KittyID)
-				return err
-			}
-
-			// delete the reservation
-			user.Reservations = append(user.Reservations[:i], user.Reservations[i+1:]...)
-
-			if err := a.store.UpdateUser(user); err != nil {
-				return err
-			}
-			break
-		}
-	}
-
-	if reservation == nil {
-		return ErrReservationNotFound
-	}
-	//
-	ikoKittyID, _ := iko.KittyIDFromString(reservation.KittyID)
-	a.KittyAPI.c.SetReservation(&rpc.ReservationIn{
-		KittyID:     ikoKittyID,
-		Reservation: reservation.Status,
-	})
-	return nil
+	return err
 }
 
 // GetReservations gets reversation based on the reservation status
@@ -264,7 +209,7 @@ func (a *Agent) GetReservations(status string) ([]Reservation, error) {
 	switch status {
 	case Available, Reserved, Delivered:
 		return a.ReservationManager.GetReservationsByStatus(status), nil
-	case "all":
+	case All:
 		return a.ReservationManager.GetReservations(), nil
 	default:
 		return nil, ErrInvalidReservationType
@@ -283,6 +228,7 @@ func (a *Agent) GetReservation(kittyID string) (*Reservation, error) {
 // kittyID: ID of kitty inside the box
 func (a *Agent) GetKittyDepositAddress(kittyID string) (string, error) {
 	reservation, err := a.store.GetReservationFromKittyID(kittyID)
+	fmt.Println(reservation)
 	if err != nil {
 		a.log.WithError(err).Errorf("GetKittyDepositAddress failed for %v", kittyID)
 		return "", err
@@ -294,3 +240,16 @@ func (a *Agent) GetKittyDepositAddress(kittyID string) (string, error) {
 
 	return reservation.DepositAddress, nil
 }
+
+//TODO (therealssj): implement reservation expiry
+//func (a *Agent) ExpireReservations() {
+//	for {
+//		for _, reservation := range a.ReservationManager.Reservations {
+//			if reservation.Expire > time.Now().UnixNano() {
+//				depositAddress := reservation.DepositAddress
+//				reservation.MakeAvailable()
+//				a.store.UpdateReservation(reservation)
+//			}
+//		}
+//	}
+//}

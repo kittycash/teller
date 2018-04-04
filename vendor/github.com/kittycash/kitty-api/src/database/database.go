@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kittycash/wallet/src/iko"
 	"github.com/pkg/errors"
@@ -15,7 +16,7 @@ type DBPublic interface {
 	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
-		startIndex, pageSize int, query string,
+		startIndex, pageSize int,
 		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 }
 
@@ -29,7 +30,7 @@ type Database interface {
 	GetEntryOfDNA(ctx context.Context, kittyDNA string) (*iko.KittyEntry, error)
 
 	GetEntries(ctx context.Context,
-		startIndex, pageSize int, query string,
+		startIndex, pageSize int,
 		filters *Filters, sorters *Sorters) (int64, []*iko.KittyEntry, error)
 
 	SetReservationOfEntry(ctx context.Context,
@@ -135,17 +136,18 @@ var (
 )
 
 func (s Sorter) Extract() (SortDirection, string) {
+	s = Sorter(strings.TrimSpace(string(s)))
 	switch len(s) {
 	case 0:
 		return SortDesc, ""
 	default:
 		switch s[0] {
-		case '+':
-			return SortDesc, string(s[1:])
 		case '-':
-			return SortAsc, string(s[1:])
+			fmt.Println("[-] string(s[1:])", string(s[1:]))
+			return SortDesc, string(s[1:])
 		default:
-			return SortDesc, string(s)
+			fmt.Println("[+] string(s[1:])", string(s[:]))
+			return SortAsc, string(s)
 		}
 	}
 }

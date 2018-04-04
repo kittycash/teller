@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boltdb/bolt"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -23,6 +24,17 @@ type fakeExchanger struct {
 
 func (e *fakeExchanger) BindAddress(kittyID, depositAddr, coinType string) (*exchange.BoundAddress, error) {
 	args := e.Called(kittyID, depositAddr, coinType)
+
+	ba := args.Get(0)
+	if ba == nil {
+		return nil, args.Error(1)
+	}
+
+	return ba.(*exchange.BoundAddress), args.Error(1)
+}
+
+func (e *fakeExchanger) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*exchange.BoundAddress, error) {
+	args := e.Called(tx, kittyID, depositAddr, coinType)
 
 	ba := args.Get(0)
 	if ba == nil {
