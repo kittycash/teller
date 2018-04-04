@@ -1,0 +1,106 @@
+{
+	"info": {
+		"_postman_id": "71a5ebc5-b531-47cb-8d64-6e36bd1c0a73",
+		"name": "Kitty API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Entries",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "{{public_d}}/api/entries?order=-kitty_id&offset=10&page_size=10",
+					"host": [
+						"{{public_d}}"
+					],
+					"path": [
+						"api",
+						"entries"
+					],
+					"query": [
+						{
+							"key": "filter_price",
+							"value": "0,233111334,btc",
+							"description": "RANGE: If set, filters kitties of price in given range. \"{min},{max},{coin}\"",
+							"disabled": true
+						},
+						{
+							"key": "filter_date",
+							"value": "30,12345",
+							"description": "RANGE: same as price_btc but for sky.",
+							"disabled": true
+						},
+						{
+							"key": "order",
+							"value": "-kitty_id",
+							"description": "LIST: The way we order the results. Possible values: \"kitty_id\", \"name\", \"price_btc\", \"price_sky\", \"-kitty_id\", \"-name\", \"-price_btc\", \"-price_sky\"."
+						},
+						{
+							"key": "offset",
+							"value": "10",
+							"description": "INT: Offset for results."
+						},
+						{
+							"key": "page_size",
+							"value": "10",
+							"description": "INT: Results per page."
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Count",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "{{public_d}}/api/count",
+					"host": [
+						"{{public_d}}"
+					],
+					"path": [
+						"api",
+						"count"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Entry",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"url": {
+					"raw": "{{public_d}}/api/entry?kitty_id=4",
+					"host": [
+						"{{public_d}}"
+					],
+					"path": [
+						"api",
+						"entry"
+					],
+					"query": [
+						{
+							"key": "kitty_id",
+							"value": "4"
+						},
+						{
+							"key": "kitty_dna",
+							"value": "dna0",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

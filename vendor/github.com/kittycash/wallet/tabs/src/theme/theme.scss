@@ -1,0 +1,61 @@
+/*
+ * Global application theme.
+ * Framework overrides and customization goes here.
+ */
+
+@import url('https://fonts.googleapis.com/css?family=Montserrat');
+
+html, body {
+    min-height: 100%;
+    font-family: 'Montserrat', sans-serif;
+    padding: 0;
+	margin: 0;
+}
+
+.btn-primary {
+    color: $white;
+    background-color: $kittyred;
+    border-color: $kittyred;
+}
+
+.btn-primary.disabled, .btn-primary:disabled {
+    background-color: $kittyred;
+    border-color: $kittyred;
+}
+
+.btn-primary:hover {
+    color: $kittyred;
+    background-color: transparent;
+    border-color: $kittyred;
+}
+
+.btn-primary:not(:disabled):not(.disabled):active, .btn-primary:not(:disabled):not(.disabled).active, .show > .btn-primary.dropdown-toggle {
+    color: #fff;
+    background-color: $kittyred;
+    border-color: $kittyred;
+}
+
+.btn-outline-primary {
+    color: $kittyred;
+    border-color: $kittyred;
+}
+
+.btn-outline-primary:hover {
+    color: $white;
+    background-color: $kittyred;
+    border-color: $kittyred;
+}
+
+.btn-outline-primary:not(:disabled):not(.disabled):active, .btn-outline-primary:not(:disabled):not(.disabled).active, .show > .btn-outline-primary.dropdown-toggle {
+    color: #fff;
+    background-color: $kittyred;
+    border-color: $kittyred;
+}
+
+.qrcode img {
+    width: 100%;
+}
+
+.ngx-pagination .current {
+    background: $kittyred !important;
+}

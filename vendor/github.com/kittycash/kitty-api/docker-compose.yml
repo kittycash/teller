@@ -1,0 +1,15 @@
+version: '3'
+services:
+  redis-search:
+    image: redislabs/redisearch:latest
+  kitty-api:
+    image: kitty-api:latest
+    build: .
+    ports:
+      - "7080:7080"
+      - "7000:7000"
+    environment:
+      - KITTY_API_REDIS_ADDRESS=redis-search:6379
+      - KITTY_API_HTTP_ADDRESS=:7080
+      - KITTY_API_MASTER_PUBLIC_KEY=03429869e7e018840dbf5f94369fa6f2ee4b380745a722a84171757a25ac1bb753
+      - KITTY_API_TEST_MODE=true
