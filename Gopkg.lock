@@ -154,7 +154,7 @@
     "src/rpc",
     "src/util"
   ]
-  revision = "a230870d134b22c2577180e93c2744b473ce173f"
+  revision = "aa49307dad818e1592db3188d58d988885abca98"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -408,7 +408,7 @@
     "unix",
     "windows"
   ]
-  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
+  revision = "f67933eaf9e2f750f58a234209a11ebc1107be38"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -444,6 +444,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ff81fa0bdc990146665d67b8b61c6f3b6f447f781fb7150681094ff4606192ea"
+  inputs-digest = "74186942a4612b2bd0667bc51e1f0e0c3068930bbf6ead5e81ca3bcae2110e86"
   solver-name = "gps-cdcl"
   solver-version = 1
