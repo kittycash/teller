@@ -19,3 +19,7 @@ func NewKittyAPI(config *rpc.ClientConfig, log logrus.FieldLogger) *KittyAPIClie
 		c: client,
 	}
 }
+
+func (k *KittyAPIClient) SetReservation(in *rpc.ReservationIn) (*rpc.ReservationOut, error) {
+	return k.c.SetReservation(in)
+}

@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/boltdb/bolt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,6 +27,7 @@ const (
 // AddrGenerator generate new deposit address
 type AddrGenerator interface {
 	NewAddress() (string, error)
+	NewAddressWithTx(tx *bolt.Tx) (string, error)
 	Remaining() uint64
 }
 
@@ -70,13 +70,24 @@ func (am *AddrManager) PushGenerator(ag AddrGenerator, coinType string) error {
 func (am *AddrManager) NewAddress(coinType string) (string, error) {
 	am.Lock()
 	defer am.Unlock()
-	spew.Dump(am)
 	ag, ok := am.generators[coinType]
 	if !ok {
 		return "", ErrCoinTypeNotRegistered
 	}
 
 	return ag.NewAddress()
+}
+
+// NewAddress return new address according to coinType
+func (am *AddrManager) NewAddressWithTx(tx *bolt.Tx, coinType string) (string, error) {
+	am.Lock()
+	defer am.Unlock()
+	ag, ok := am.generators[coinType]
+	if !ok {
+		return "", ErrCoinTypeNotRegistered
+	}
+
+	return ag.NewAddressWithTx(tx)
 }
 
 // Remaining returns the number of remaining addresses for a given coin type
@@ -153,6 +164,41 @@ func (a *Addrs) NewAddress() (string, error) {
 	}
 
 	if err := a.used.Put(chosenAddr); err != nil {
+		return "", fmt.Errorf("Put address in used pool failed: %v", err)
+	}
+
+	// remove used addr
+	a.addresses = a.addresses[pt+1:]
+	return chosenAddr, nil
+}
+
+func (a *Addrs) NewAddressWithTx(tx *bolt.Tx) (string, error) {
+	a.Lock()
+	defer a.Unlock()
+
+	if len(a.addresses) == 0 {
+		return "", ErrDepositAddressEmpty
+	}
+
+	var chosenAddr string
+	var pt int
+	for i, addr := range a.addresses {
+		if used, err := a.used.IsUsed(addr); err != nil {
+			return "", err
+		} else if used {
+			continue
+		}
+
+		pt = i
+		chosenAddr = addr
+		break
+	}
+
+	if chosenAddr == "" {
+		return "", ErrDepositAddressEmpty
+	}
+
+	if err := a.used.PutWithTx(tx, chosenAddr); err != nil {
 		return "", fmt.Errorf("Put address in used pool failed: %v", err)
 	}
 

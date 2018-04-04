@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-
 	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/boltdb/bolt"
 	"github.com/gz-c/tollbooth"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
@@ -52,12 +52,13 @@ type HTTPServer struct {
 	service       *Service
 	httpListener  *http.Server
 	httpsListener *http.Server
+	db            *bolt.DB
 	quit          chan struct{}
 	done          chan struct{}
 }
 
 // NewHTTPServer creates an HTTPServer
-func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, exchanger exchange.Exchanger) *HTTPServer {
+func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, exchanger exchange.Exchanger, db *bolt.DB) *HTTPServer {
 	return &HTTPServer{
 		cfg: cfg.Redacted(),
 		log: log.WithFields(logrus.Fields{
@@ -65,6 +66,7 @@ func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, 
 		}),
 		service:   service,
 		exchanger: exchanger,
+		db:        db,
 		quit:      make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -281,8 +283,7 @@ func (s *HTTPServer) setupMux() *http.ServeMux {
 	handleAPI("/api/config", httputil.LogHandler(s.log, ConfigHandler(s)))
 	handleAPI("/api/exchange-status", httputil.LogHandler(s.log, ExchangeStatusHandler(s)))
 	handleAPI("/api/reservation/reserve", httputil.LogHandler(s.log, MakeReservationHandler(s)))
-	handleAPI("/api/reservation/cancel", httputil.LogHandler(s.log, CancelReservationHandler(s)))
-	handleAPI("/api/reservation/getreservation", httputil.LogHandler(s.log, GetReservationsHandler(s)))
+	handleAPI("/api/reservation/getreservations", httputil.LogHandler(s.log, GetReservationsHandler(s)))
 	handleAPI("/api/reservation/getdepositaddress", httputil.LogHandler(s.log, GetDepositAddressHandler(s)))
 
 	return mux

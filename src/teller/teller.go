@@ -3,6 +3,7 @@ package teller
 import (
 	"errors"
 
+	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/addrs"
@@ -28,7 +29,7 @@ type Teller struct {
 }
 
 // New creates a Teller
-func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, agentManager *agent.Agent, cfg config.Config) *Teller {
+func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addrs.AddrManager, agentManager *agent.Agent, cfg config.Config, db *bolt.DB) *Teller {
 	return &Teller{
 		cfg:  cfg.Teller,
 		log:  log.WithField("prefix", "teller"),
@@ -39,7 +40,7 @@ func New(log logrus.FieldLogger, exchanger exchange.Exchanger, addrManager *addr
 			exchanger:    exchanger,
 			addrManager:  addrManager,
 			agentManager: agentManager,
-		}, exchanger),
+		}, exchanger, db),
 	}
 }
 
@@ -99,6 +100,26 @@ func (s *Service) BindAddress(kittyID, coinType string) (*exchange.BoundAddress,
 	}
 
 	return s.exchanger.BindAddress(kittyID, depositAddr, coinType)
+}
+
+// BindAddress binds kittyID with a deposit address according to coinType with a db tx
+// return deposit address
+func (s *Service) BindAddressTx(tx *bolt.Tx, kittyID, coinType string) (*exchange.BoundAddress, error) {
+	if !s.cfg.BindEnabled {
+		return nil, ErrBindDisabled
+	}
+
+	// check if box is already bound to a payment address
+	if s.exchanger.IsBound(kittyID) {
+		return nil, ErrBoxAlreadyBound
+	}
+
+	depositAddr, err := s.addrManager.NewAddressWithTx(tx, coinType)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.exchanger.BindAddressWithTx(tx, kittyID, depositAddr, coinType)
 }
 
 // GetDepositStatuses returns deposit status of given skycoin address

@@ -129,7 +129,7 @@
     "json/scanner",
     "json/token"
   ]
-  revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
+  revision = "061bf373e402ebb186988085a71ac748949594a9"
 
 [[projects]]
   branch = "master"
@@ -144,7 +144,7 @@
     "src/database",
     "src/rpc"
   ]
-  revision = "fe987200bfc0ca3d7307de38f0852761cf6cd481"
+  revision = "d77b1489a9bc1187d9635f54036d0de1c46b9250"
 
 [[projects]]
   branch = "master"
@@ -154,7 +154,7 @@
     "src/rpc",
     "src/util"
   ]
-  revision = "f5e08af3e5d3c643b105684395583744eb0a09f7"
+  revision = "a230870d134b22c2577180e93c2744b473ce173f"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -393,7 +393,7 @@
     "ripemd160",
     "ssh/terminal"
   ]
-  revision = "12892e8c234f4fe6f6803f052061de9057903bb2"
+  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
 
 [[projects]]
   branch = "master"

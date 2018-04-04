@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kittycash/teller/src/config"
@@ -18,6 +19,7 @@ import (
 type Receiver interface {
 	Deposits() <-chan DepositInfo
 	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
+	BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error)
 }
 
 // ReceiveRunner is a Receiver than can be run
@@ -172,6 +174,23 @@ func (r *Receive) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddr
 	}
 
 	boundAddr, err := r.store.BindAddress(kittyID, depositAddr, coinType)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.multiplexer.AddScanAddress(depositAddr, coinType); err != nil {
+		return nil, err
+	}
+
+	return boundAddr, nil
+}
+
+func (r *Receive) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error) {
+	if err := r.multiplexer.ValidateCoinType(coinType); err != nil {
+		return nil, err
+	}
+
+	boundAddr, err := r.store.BindAddressWithTx(tx, kittyID, depositAddr, coinType)
 	if err != nil {
 		return nil, err
 	}

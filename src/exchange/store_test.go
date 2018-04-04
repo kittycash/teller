@@ -37,6 +37,17 @@ func (m *MockStore) BindAddress(kittyID, depositAddr, coinType string) (*BoundAd
 	return ba.(*BoundAddress), args.Error(1)
 }
 
+func (m *MockStore) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error) {
+	args := m.Called(tx, kittyID, depositAddr, coinType)
+
+	ba := args.Get(0)
+	if ba == nil {
+		return nil, args.Error(1)
+	}
+
+	return ba.(*BoundAddress), args.Error(1)
+}
+
 func (m *MockStore) GetOrCreateDepositInfo(dv scanner.Deposit) (DepositInfo, error) {
 	args := m.Called(dv)
 	return args.Get(0).(DepositInfo), args.Error(1)

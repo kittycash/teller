@@ -75,6 +75,7 @@ func init() {
 type Storer interface {
 	GetBindAddress(depositAddr, coinType string) (*BoundAddress, error)
 	BindAddress(kittyID, depositAddr, coinType string) (*BoundAddress, error)
+	BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error)
 	GetOrCreateDepositInfo(scanner.Deposit) (DepositInfo, error)
 	GetDepositInfoArray(DepositFilter) ([]DepositInfo, error)
 	GetDepositInfoOfKittyID(string) ([]DepositInfo, error)
@@ -208,6 +209,38 @@ func (s *Store) BindAddress(kittyID, depositAddr, coinType string) (*BoundAddres
 	}
 
 	return &boundAddr, nil
+}
+
+func (s *Store) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*BoundAddress, error) {
+	log := s.log.WithField("kittyID", kittyID)
+	log = log.WithField("depositAddr", depositAddr)
+	log = log.WithField("coinType", coinType)
+
+	bindBktFullName, err := GetBindAddressBkt(coinType)
+	if err != nil {
+		return nil, err
+	}
+
+	boundAddr := BoundAddress{
+		KittyID:  kittyID,
+		Address:  depositAddr,
+		CoinType: coinType,
+	}
+
+	existingKittyID, err := s.getBindAddressTx(tx, depositAddr, coinType)
+	if err != nil {
+		return nil, err
+	}
+
+	if existingKittyID != nil {
+		err := ErrAddressAlreadyBound
+		log.WithError(err).Error("Attempted to bind a payment address twice")
+		return nil, err
+	}
+
+	err = dbutil.PutBucketValue(tx, bindBktFullName, depositAddr, boundAddr)
+
+	return &boundAddr, err
 }
 
 // GetOrCreateDepositInfo creates a DepositInfo unless one exists with the DepositInfo.DepositID key,

@@ -327,7 +327,7 @@ func run() error {
 		VerifierEnabled: cfg.VerificationService.Enabled,
 	}
 	agentManager := kittyagent.New(log, agentCfg, agentStore)
-	tellerServer := teller.New(log, exchangeClient, addrManager, agentManager, cfg)
+	tellerServer := teller.New(log, exchangeClient, addrManager, agentManager, cfg, db)
 
 	// Run the service
 	background("tellerServer.Run", errC, tellerServer.Run)

@@ -37,8 +37,13 @@ func NewStore(db *bolt.DB, key string) (*Store, error) {
 // Put sets an address in the bucket, marking it as used
 func (s *Store) Put(addr string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(s.BucketKey).Put([]byte(addr), []byte(""))
+		return s.PutWithTx(tx, addr)
 	})
+}
+
+// Put sets an address in the bucket, marking it as used
+func (s *Store) PutWithTx(tx *bolt.Tx, addr string) error {
+	return tx.Bucket(s.BucketKey).Put([]byte(addr), []byte(""))
 }
 
 // IsUsed checks if address is mark as used

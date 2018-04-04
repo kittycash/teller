@@ -18,10 +18,6 @@ var (
 	UsersBkt = []byte("users")
 	// KittyOwnerBkt maps kitty id to the skycoin address of the user who has reserved it
 	KittyOwnerBkt = []byte("kitty_owner_idex")
-	// BoxBkt map kittyID to a kitty box
-	// We do need some place to maintain kitty boxes
-	// @TODO need to think more about this. What will we store and the structure
-	BoxBkt = []byte("boxes")
 )
 
 // Storer interface handles database interactions
@@ -31,11 +27,14 @@ type Storer interface {
 	GetReservationFromKittyID(kittyID string) (*Reservation, error)
 	GetReservationUserFromKittyID(kittyID string) (*User, error)
 	AddUser(user *User) error
+	AddUserWithTx(tx *bolt.Tx, user *User) error
 	GetUsers() ([]User, error)
 	GetUser(userAddr string) (*User, error)
 	GetUserReservations(userAddr string) ([]Reservation, error)
 	UpdateUser(user *User) error
+	UpdateUserWithTx(tx *bolt.Tx, user *User) error
 	UpdateReservation(reservation *Reservation) error
+	UpdateReservationWithTx(tx *bolt.Tx, reservation *Reservation) error
 	UpdateReservations(reservations []*Reservation) error
 }
 
@@ -65,10 +64,6 @@ func NewStore(log logrus.FieldLogger, db *bolt.DB) (*Store, error) {
 		// create kitty owner bkt if not exist
 		if _, err := tx.CreateBucketIfNotExists(KittyOwnerBkt); err != nil {
 			return dbutil.NewCreateBucketFailedErr(KittyOwnerBkt, err)
-		}
-		// create box bucket if not exist
-		if _, err := tx.CreateBucketIfNotExists(BoxBkt); err != nil {
-			return dbutil.NewCreateBucketFailedErr(BoxBkt, err)
 		}
 
 		return nil
@@ -108,8 +103,6 @@ func (s *Store) GetReservations() ([]Reservation, error) {
 }
 
 // GetReservationFromKittyID returns a reservation from the kittyID
-// Args:
-// kittyID: ID of the kitty in the reservation box
 func (s *Store) GetReservationFromKittyID(kittyID string) (*Reservation, error) {
 	reservation := &Reservation{}
 
@@ -175,8 +168,13 @@ func (s *Store) GetReservationsByStatus(status string) ([]Reservation, error) {
 // Adduser adds a new user to the database
 func (s *Store) AddUser(user *User) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return dbutil.PutBucketValue(tx, UsersBkt, user.Address, user)
+		return s.AddUserWithTx(tx, user)
 	})
+}
+
+// Adduser adds a new user to the database
+func (s *Store) AddUserWithTx(tx *bolt.Tx, user *User) error {
+	return dbutil.PutBucketValue(tx, UsersBkt, user.Address, user)
 }
 
 // GetUsers fetchs all the users from the database
@@ -227,26 +225,30 @@ func (s *Store) GetUserReservations(userAddr string) ([]Reservation, error) {
 }
 
 // UpdateUser updates user info
-// Args:
-// User: object of the user to be updated
 func (s *Store) UpdateUser(user *User) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return dbutil.PutBucketValue(tx, UsersBkt, user.Address, user)
+		return s.UpdateUserWithTx(tx, user)
 	})
+}
+
+// UpdateUserWithTx updates user info within a transaction
+func (s *Store) UpdateUserWithTx(tx *bolt.Tx, user *User) error {
+	return dbutil.PutBucketValue(tx, UsersBkt, user.Address, user)
 }
 
 // UpdateReservation Updates a reservation
-// Args:
-// reservation: reservation to be updated
 func (s *Store) UpdateReservation(reservation *Reservation) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		return dbutil.PutBucketValue(tx, ReservationsKittyBkt, reservation.KittyID, *reservation)
+		return s.UpdateReservationWithTx(tx, reservation)
 	})
 }
 
+// UpdateReservationWithTx Updates a reservation within a transaction
+func (s *Store) UpdateReservationWithTx(tx *bolt.Tx, reservation *Reservation) error {
+	return dbutil.PutBucketValue(tx, ReservationsKittyBkt, reservation.KittyID, *reservation)
+}
+
 // UpdateReservations Updates a list of reservations
-// Args:
-// reservations: reservations to be updated
 func (s *Store) UpdateReservations(reservations []*Reservation) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		var err error
