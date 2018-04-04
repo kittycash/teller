@@ -13,9 +13,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/skycoin/skycoin/src/visor"
-	"github.com/skycoin/skycoin/src/wallet"
-
-	"github.com/skycoin/teller/src/util/mathutil"
 )
 
 // Config represents the configuration root
@@ -26,29 +23,36 @@ type Config struct {
 	Profile bool `mapstructure:"profile"`
 	// Where log is saved
 	LogFilename string `mapstructure:"logfile"`
-	// Where database is saved, inside the ~/.teller-skycoin data directory
+	// Where database is saved, inside the ~/.teller-kittycash data directory
 	DBFilename string `mapstructure:"dbfile"`
 
 	// Path of BTC addresses JSON file
 	BtcAddresses string `mapstructure:"btc_addresses"`
-	// Path of ETH addresses JSON file
-	EthAddresses string `mapstructure:"eth_addresses"`
+	// Path of SKY addresses JSON file
+	SkyAddresses string `mapstructure:"sky_addresses"`
 
 	Teller Teller `mapstructure:"teller"`
 
 	SkyRPC SkyRPC `mapstructure:"sky_rpc"`
 	BtcRPC BtcRPC `mapstructure:"btc_rpc"`
-	EthRPC EthRPC `mapstructure:"eth_rpc"`
+
+	KittyClientAddr string `mapstructure:"kitty_client_addr"`
 
 	BtcScanner   BtcScanner   `mapstructure:"btc_scanner"`
-	EthScanner   EthScanner   `mapstructure:"eth_scanner"`
-	SkyExchanger SkyExchanger `mapstructure:"sky_exchanger"`
+	SkyScanner   SkyScanner   `mapstructure:"sky_scanner"`
+	BoxExchanger BoxExchanger `mapstructure:"box_exchanger"`
 
 	Web Web `mapstructure:"web"`
 
 	AdminPanel AdminPanel `mapstructure:"admin_panel"`
 
+	SecKey string `mapstructure:"secret_key"`
+
 	Dummy Dummy `mapstructure:"dummy"`
+
+	KittyApi KittyApi `mapstructure:"kitty_api"`
+
+	VerificationService VerificationService `mapstructure:"verification_service"`
 }
 
 // Teller config for teller
@@ -66,18 +70,10 @@ type SkyRPC struct {
 
 // BtcRPC config for btcrpc
 type BtcRPC struct {
-	Server  string `mapstructure:"server"`
-	User    string `mapstructure:"user"`
-	Pass    string `mapstructure:"pass"`
-	Cert    string `mapstructure:"cert"`
-	Enabled bool   `mapstructure:"enabled"`
-}
-
-// EthRPC config for ethrpc
-type EthRPC struct {
-	Server  string `mapstructure:"server"`
-	Port    string `mapstructure:"port"`
-	Enabled bool   `mapstructure:"enabled"`
+	Server string `mapstructure:"server"`
+	User   string `mapstructure:"user"`
+	Pass   string `mapstructure:"pass"`
+	Cert   string `mapstructure:"cert"`
 }
 
 // BtcScanner config for BTC scanner
@@ -86,54 +82,40 @@ type BtcScanner struct {
 	ScanPeriod            time.Duration `mapstructure:"scan_period"`
 	InitialScanHeight     int64         `mapstructure:"initial_scan_height"`
 	ConfirmationsRequired int64         `mapstructure:"confirmations_required"`
+	Enabled               bool          `mapstructure:"enabled"`
 }
 
-// EthScanner config for ETH scanner
-type EthScanner struct {
+// SkyScanner config for SKY Scanner
+type SkyScanner struct {
 	// How often to try to scan for blocks
-	ScanPeriod            time.Duration `mapstructure:"scan_period"`
-	InitialScanHeight     int64         `mapstructure:"initial_scan_height"`
-	ConfirmationsRequired int64         `mapstructure:"confirmations_required"`
+	ScanPeriod        time.Duration `mapstructure:"scan_period"`
+	InitialScanHeight int64         `mapstructure:"initial_scan_height"`
+	Enabled           bool          `mapstructure:"enabled"`
 }
 
-// SkyExchanger config for skycoin sender
-type SkyExchanger struct {
-	// SKY/BTC exchange rate. Can be an int, float or rational fraction string
-	SkyBtcExchangeRate string `mapstructure:"sky_btc_exchange_rate"`
-	SkyEthExchangeRate string `mapstructure:"sky_eth_exchange_rate"`
+// BoxExchanger config for box sender
+type BoxExchanger struct {
 	// Number of decimal places to truncate SKY to
 	MaxDecimals int `mapstructure:"max_decimals"`
+	// Password of kitty wallet
+	GenesisKey string `mapstructure:"genesis_key"`
 	// How long to wait before rechecking transaction confirmations
 	TxConfirmationCheckWait time.Duration `mapstructure:"tx_confirmation_check_wait"`
-	// Path of hot Skycoin wallet file on disk
-	Wallet string `mapstructure:"wallet"`
-	// Allow sending of coins (deposits will still be received and recorded)
+	// Allow sending of boxes (deposits will still be received and recorded)
 	SendEnabled bool `mapstructure:"send_enabled"`
 }
 
-// Validate validates the SkyExchanger config
-func (c SkyExchanger) Validate() error {
+// Validate validates the BoxExchanger config
+func (c BoxExchanger) Validate() error {
 	if errs := c.validate(); len(errs) != 0 {
-		return errs[0]
-	}
-
-	if errs := c.validateWallet(); len(errs) != 0 {
 		return errs[0]
 	}
 
 	return nil
 }
 
-func (c SkyExchanger) validate() []error {
+func (c BoxExchanger) validate() []error {
 	var errs []error
-
-	if _, err := mathutil.ParseRate(c.SkyBtcExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.sky_btc_exchange_rate invalid: %v", err))
-	}
-
-	if _, err := mathutil.ParseRate(c.SkyEthExchangeRate); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.sky_eth_exchange_rate invalid: %v", err))
-	}
 
 	if c.MaxDecimals < 0 {
 		errs = append(errs, errors.New("sky_exchanger.max_decimals can't be negative"))
@@ -141,27 +123,6 @@ func (c SkyExchanger) validate() []error {
 
 	if uint64(c.MaxDecimals) > visor.MaxDropletPrecision {
 		errs = append(errs, fmt.Errorf("sky_exchanger.max_decimals is larger than visor.MaxDropletPrecision=%d", visor.MaxDropletPrecision))
-	}
-
-	return errs
-}
-
-func (c SkyExchanger) validateWallet() []error {
-	var errs []error
-
-	if c.Wallet == "" {
-		errs = append(errs, errors.New("sky_exchanger.wallet missing"))
-	}
-
-	if _, err := os.Stat(c.Wallet); os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s does not exist", c.Wallet))
-	}
-
-	w, err := wallet.Load(c.Wallet)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s failed to load: %v", c.Wallet, err))
-	} else if err := w.Validate(); err != nil {
-		errs = append(errs, fmt.Errorf("sky_exchanger.wallet file %s is invalid: %v", c.Wallet, err))
 	}
 
 	return errs
@@ -217,6 +178,14 @@ type Dummy struct {
 	HTTPAddr string `mapstructure:"http_addr"`
 }
 
+type KittyApi struct {
+	Address string `mapstructure:"address"`
+}
+
+type VerificationService struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 // Redacted returns a copy of the config with sensitive information redacted
 func (c Config) Redacted() Config {
 	if c.BtcRPC.User != "" {
@@ -243,11 +212,11 @@ func (c Config) Validate() error {
 	if _, err := os.Stat(c.BtcAddresses); os.IsNotExist(err) {
 		oops("btc_addresses file does not exist")
 	}
-	if c.EthAddresses == "" {
-		oops("eth_addresses missing")
+	if c.SkyAddresses == "" {
+		oops("sky_addresses missing")
 	}
-	if _, err := os.Stat(c.EthAddresses); os.IsNotExist(err) {
-		oops("eth_addresses file does not exist")
+	if _, err := os.Stat(c.SkyAddresses); os.IsNotExist(err) {
+		oops("sky file does not exist")
 	}
 
 	if !c.Dummy.Sender {
@@ -267,7 +236,7 @@ func (c Config) Validate() error {
 	}
 
 	if !c.Dummy.Scanner {
-		if c.BtcRPC.Enabled {
+		if c.BtcScanner.Enabled {
 			if c.BtcRPC.Server == "" {
 				oops("btc_rpc.server missing")
 			}
@@ -286,14 +255,6 @@ func (c Config) Validate() error {
 				oops("btc_rpc.cert file does not exist")
 			}
 		}
-		if c.EthRPC.Enabled {
-			if c.EthRPC.Server == "" {
-				oops("eth_rpc.server missing")
-			}
-			if c.EthRPC.Port == "" {
-				oops("eth_rpc.port missing")
-			}
-		}
 	}
 
 	if c.BtcScanner.ConfirmationsRequired < 0 {
@@ -302,24 +263,18 @@ func (c Config) Validate() error {
 	if c.BtcScanner.InitialScanHeight < 0 {
 		oops("btc_scanner.initial_scan_height must be >= 0")
 	}
-	if c.EthScanner.ConfirmationsRequired < 0 {
-		oops("eth_scanner.confirmations_required must be >= 0")
-	}
-	if c.EthScanner.InitialScanHeight < 0 {
-		oops("eth_scanner.initial_scan_height must be >= 0")
-	}
 
-	exchangeErrs := c.SkyExchanger.validate()
+	exchangeErrs := c.BoxExchanger.validate()
 	for _, err := range exchangeErrs {
 		oops(err.Error())
 	}
-
-	if !c.Dummy.Sender {
-		exchangeErrs := c.SkyExchanger.validateWallet()
-		for _, err := range exchangeErrs {
-			oops(err.Error())
-		}
-	}
+	//
+	//if !c.Dummy.Sender {
+	//	exchangeErrs := c.BoxExchanger.validateWallet()
+	//	for _, err := range exchangeErrs {
+	//		oops(err.Error())
+	//	}
+	//}
 
 	if err := c.Web.Validate(); err != nil {
 		oops(err.Error())
@@ -336,26 +291,30 @@ func setDefaults() {
 	// Top-level args
 	viper.SetDefault("profile", false)
 	viper.SetDefault("debug", true)
-	viper.SetDefault("logfile", "./teller.log")
-	viper.SetDefault("dbfile", "teller.db")
+	viper.SetDefault("logfile", "./kittyteller.log")
+	viper.SetDefault("dbfile", "kittyteller.db")
 
 	// Teller
 	viper.SetDefault("teller.max_bound_btc_addrs", 5)
+	viper.SetDefault("teller.bind_enabled", true)
 
 	// SkyRPC
 	viper.SetDefault("sky_rpc.address", "127.0.0.1:6430")
 
 	// BtcRPC
 	viper.SetDefault("btc_rpc.server", "127.0.0.1:8334")
-	viper.SetDefault("btc_rpc.enabled", true)
-
-	// EthRPC
-	viper.SetDefault("eth_rpc.enabled", false)
 
 	// BtcScanner
+	viper.SetDefault("btc_scanner.enabled", true)
 	viper.SetDefault("btc_scanner.scan_period", time.Second*20)
 	viper.SetDefault("btc_scanner.initial_scan_height", int64(492478))
 	viper.SetDefault("btc_scanner.confirmations_required", int64(1))
+
+	// SkyScanner
+	viper.SetDefault("sky_scanner.enabled", true)
+	viper.SetDefault("sky_scanner.scan_period", time.Second*5)
+	viper.SetDefault("sky_scanner.initial_scan_height", int64(17000))
+	viper.SetDefault("sky_scanner.confirmations_required", int64(0))
 
 	// SkyExchanger
 	viper.SetDefault("sky_exchanger.tx_confirmation_check_wait", time.Second*5)
@@ -365,7 +324,6 @@ func setDefaults() {
 
 	// Web
 	viper.SetDefault("web.http_addr", "127.0.0.1:7071")
-	viper.SetDefault("web.static_dir", "./web/build")
 	viper.SetDefault("web.throttle_max", int64(60))
 	viper.SetDefault("web.throttle_duration", time.Minute)
 
@@ -376,6 +334,12 @@ func setDefaults() {
 	viper.SetDefault("dummy.http_addr", "127.0.0.1:4121")
 	viper.SetDefault("dummy.scanner", false)
 	viper.SetDefault("dummy.sender", false)
+
+	// KittyAPI RPC
+	viper.SetDefault("kitty_api.address", "127.0.0.1:7000")
+
+	// Verification service
+	viper.SetDefault("verification_service.enabled", false)
 }
 
 // Load loads the configuration from "./$configName.*" where "*" is a

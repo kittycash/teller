@@ -2,28 +2,28 @@ package teller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/boltdb/bolt"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/skycoin/src/api/cli"
+	"errors"
 
-	"github.com/skycoin/teller/src/exchange"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/sender"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 type fakeExchanger struct {
 	mock.Mock
 }
 
-func (e *fakeExchanger) BindAddress(skyAddr, depositAddr, coinType string) (*exchange.BoundAddress, error) {
-	args := e.Called(skyAddr, depositAddr, coinType)
+func (e *fakeExchanger) BindAddress(kittyID, depositAddr, coinType string) (*exchange.BoundAddress, error) {
+	args := e.Called(kittyID, depositAddr, coinType)
 
 	ba := args.Get(0)
 	if ba == nil {
@@ -33,8 +33,19 @@ func (e *fakeExchanger) BindAddress(skyAddr, depositAddr, coinType string) (*exc
 	return ba.(*exchange.BoundAddress), args.Error(1)
 }
 
-func (e *fakeExchanger) GetDepositStatuses(skyAddr string) ([]exchange.DepositStatus, error) {
-	args := e.Called(skyAddr)
+func (e *fakeExchanger) BindAddressWithTx(tx *bolt.Tx, kittyID, depositAddr, coinType string) (*exchange.BoundAddress, error) {
+	args := e.Called(tx, kittyID, depositAddr, coinType)
+
+	ba := args.Get(0)
+	if ba == nil {
+		return nil, args.Error(1)
+	}
+
+	return ba.(*exchange.BoundAddress), args.Error(1)
+}
+
+func (e *fakeExchanger) GetDepositStatuses(kittyID string) ([]exchange.DepositStatus, error) {
+	args := e.Called(kittyID)
 	return args.Get(0).([]exchange.DepositStatus), args.Error(1)
 }
 
@@ -43,9 +54,9 @@ func (e *fakeExchanger) GetDepositStatusDetail(flt exchange.DepositFilter) ([]ex
 	return args.Get(0).([]exchange.DepositStatusDetail), args.Error(1)
 }
 
-func (e *fakeExchanger) GetBindNum(skyAddr string) (int, error) {
-	args := e.Called(skyAddr)
-	return args.Int(0), args.Error(1)
+func (e *fakeExchanger) IsBound(kittyID string) bool {
+	args := e.Called(kittyID)
+	return args.Bool(0)
 }
 
 func (e *fakeExchanger) GetDepositStats() (*exchange.DepositStats, error) {
@@ -58,15 +69,13 @@ func (e *fakeExchanger) Status() error {
 	return args.Error(0)
 }
 
-func (e *fakeExchanger) Balance() (*cli.Balance, error) {
+func (e *fakeExchanger) Balance() (int, error) {
+	//@TODO (therealssj): fix this
+
 	args := e.Called()
+	r := args.Get(0).(*int)
 
-	b := args.Get(0)
-	if b == nil {
-		return nil, args.Error(1)
-	}
-
-	return b.(*cli.Balance), args.Error(1)
+	return *r, args.Error(1)
 }
 
 func TestExchangeStatusHandler(t *testing.T) {
@@ -78,7 +87,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 		err            string
 		exchangeStatus error
 		errorMsg       string
-		balance        cli.Balance
+		balance        int
 		balanceError   error
 	}{
 		{
@@ -89,10 +98,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 			"Invalid request method",
 			nil,
 			"",
-			cli.Balance{
-				Coins: "100.000000",
-				Hours: "100",
-			},
+			1,
 			nil,
 		},
 
@@ -104,10 +110,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 			"",
 			nil,
 			"",
-			cli.Balance{
-				Coins: "100.000000",
-				Hours: "100",
-			},
+			1,
 			nil,
 		},
 
@@ -119,10 +122,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 			"",
 			errors.New("exchange.Status error"),
 			"",
-			cli.Balance{
-				Coins: "100.000000",
-				Hours: "100",
-			},
+			1,
 			nil,
 		},
 
@@ -132,29 +132,13 @@ func TestExchangeStatusHandler(t *testing.T) {
 			"/api/exchange-status",
 			http.StatusOK,
 			"",
-			sender.NewRPCError(errors.New("exchange.Status RPC error")),
-			"exchange.Status RPC error",
-			cli.Balance{
-				Coins: "100.000000",
-				Hours: "100",
-			},
+			sender.NewRPCError(errors.New("exchange.Status API error")),
+			"exchange.Status API error",
+			1,
 			nil,
 		},
+		//@TODO (therealssj): add more tests when wallet is implemented properly
 
-		{
-			"200 cli balance error",
-			http.MethodGet,
-			"/api/exchange-status",
-			http.StatusOK,
-			"",
-			nil,
-			"",
-			cli.Balance{
-				Coins: "0.000000",
-				Hours: "0",
-			},
-			errors.New("cli balance error"),
-		},
 	}
 
 	for _, tc := range tt {
@@ -197,8 +181,7 @@ func TestExchangeStatusHandler(t *testing.T) {
 			require.Equal(t, ExchangeStatusResponse{
 				Error: tc.errorMsg,
 				Balance: ExchangeStatusResponseBalance{
-					Coins: tc.balance.Coins,
-					Hours: tc.balance.Hours,
+					Kitties: tc.balance,
 				},
 			}, msg)
 		})

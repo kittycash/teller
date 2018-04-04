@@ -3,33 +3,27 @@ package teller
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strings"
 	"sync"
-
 	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/boltdb/bolt"
 	"github.com/gz-c/tollbooth"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 	"github.com/unrolled/secure"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/util/droplet"
+	"github.com/kittycash/teller/src/config"
+	"github.com/kittycash/teller/src/exchange"
+	"github.com/kittycash/teller/src/util/httputil"
+	"github.com/kittycash/teller/src/util/logger"
 
-	"github.com/skycoin/teller/src/addrs"
-	"github.com/skycoin/teller/src/config"
-	"github.com/skycoin/teller/src/exchange"
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/sender"
-	"github.com/skycoin/teller/src/util/httputil"
-	"github.com/skycoin/teller/src/util/logger"
+	"github.com/skycoin/skycoin/src/cipher"
 )
 
 const (
@@ -58,12 +52,13 @@ type HTTPServer struct {
 	service       *Service
 	httpListener  *http.Server
 	httpsListener *http.Server
+	db            *bolt.DB
 	quit          chan struct{}
 	done          chan struct{}
 }
 
 // NewHTTPServer creates an HTTPServer
-func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, exchanger exchange.Exchanger) *HTTPServer {
+func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, exchanger exchange.Exchanger, db *bolt.DB) *HTTPServer {
 	return &HTTPServer{
 		cfg: cfg.Redacted(),
 		log: log.WithFields(logrus.Fields{
@@ -71,6 +66,7 @@ func NewHTTPServer(log logrus.FieldLogger, cfg config.Config, service *Service, 
 		}),
 		service:   service,
 		exchanger: exchanger,
+		db:        db,
 		quit:      make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -283,13 +279,12 @@ func (s *HTTPServer) setupMux() *http.ServeMux {
 	}
 
 	// API Methods
-	handleAPI("/api/bind", ratelimit(httputil.LogHandler(s.log, BindHandler(s))))
 	handleAPI("/api/status", ratelimit(httputil.LogHandler(s.log, StatusHandler(s))))
 	handleAPI("/api/config", httputil.LogHandler(s.log, ConfigHandler(s)))
 	handleAPI("/api/exchange-status", httputil.LogHandler(s.log, ExchangeStatusHandler(s)))
-
-	// Static files
-	mux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir(s.cfg.Web.StaticDir))))
+	handleAPI("/api/reservation/reserve", httputil.LogHandler(s.log, MakeReservationHandler(s)))
+	handleAPI("/api/reservation/getreservations", httputil.LogHandler(s.log, GetReservationsHandler(s)))
+	handleAPI("/api/reservation/getdepositaddress", httputil.LogHandler(s.log, GetDepositAddressHandler(s)))
 
 	return mux
 }
@@ -329,315 +324,6 @@ func (s *HTTPServer) Shutdown() {
 	wg.Wait()
 
 	<-s.done
-}
-
-// BindResponse http response for /api/bind
-type BindResponse struct {
-	DepositAddress string `json:"deposit_address,omitempty"`
-	CoinType       string `json:"coin_type,omitempty"`
-	BuyMethod      string `json:"buy_method"`
-}
-
-type bindRequest struct {
-	SkyAddr  string `json:"skyaddr"`
-	CoinType string `json:"coin_type"`
-}
-
-// BindHandler binds skycoin address with a bitcoin address
-// Method: POST
-// Accept: application/json
-// URI: /api/bind
-// Args:
-//    {"skyaddr": "...", "coin_type": "BTC"}
-func BindHandler(s *HTTPServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		log := logger.FromContext(ctx)
-
-		w.Header().Set("Accept", "application/json")
-
-		if !validMethod(ctx, w, r, []string{http.MethodPost}) {
-			return
-		}
-
-		if r.Header.Get("Content-Type") != "application/json" {
-			errorResponse(ctx, w, http.StatusUnsupportedMediaType, errors.New("Invalid content type"))
-			return
-		}
-
-		bindReq := &bindRequest{}
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&bindReq); err != nil {
-			err = fmt.Errorf("Invalid json request body: %v", err)
-			errorResponse(ctx, w, http.StatusBadRequest, err)
-			return
-		}
-		defer func(log logrus.FieldLogger) {
-			if err := r.Body.Close(); err != nil {
-				log.WithError(err).Warn("Failed to closed request body")
-			}
-		}(log)
-
-		// Remove extraneous whitespace
-		bindReq.SkyAddr = strings.Trim(bindReq.SkyAddr, "\n\t ")
-
-		log = log.WithField("bindReq", bindReq)
-		ctx = logger.WithContext(ctx, log)
-
-		if bindReq.SkyAddr == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing skyaddr"))
-			return
-		}
-
-		switch bindReq.CoinType {
-		case scanner.CoinTypeBTC:
-			if !s.cfg.BtcRPC.Enabled {
-				errorResponse(ctx, w, http.StatusBadRequest, fmt.Errorf("%s not enabled", scanner.CoinTypeBTC))
-				return
-			}
-		case scanner.CoinTypeETH:
-			if !s.cfg.EthRPC.Enabled {
-				errorResponse(ctx, w, http.StatusBadRequest, fmt.Errorf("%s not enabled", scanner.CoinTypeETH))
-				return
-			}
-		case "":
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing coin_type"))
-			return
-		default:
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Invalid coin_type"))
-			return
-		}
-
-		log.Info()
-
-		if !verifySkycoinAddress(ctx, w, bindReq.SkyAddr) {
-			return
-		}
-
-		log.Info("Calling service.BindAddress")
-
-		boundAddr, err := s.service.BindAddress(bindReq.SkyAddr, bindReq.CoinType)
-		if err != nil {
-			log.WithError(err).Error("service.BindAddress failed")
-			switch err {
-			case ErrBindDisabled:
-				errorResponse(ctx, w, http.StatusForbidden, err)
-			default:
-				switch err {
-				case addrs.ErrDepositAddressEmpty, ErrMaxBoundAddresses:
-				default:
-					err = errInternalServerError
-				}
-				errorResponse(ctx, w, http.StatusInternalServerError, err)
-			}
-			return
-		}
-
-		log = log.WithField("boundAddr", boundAddr)
-		log.Infof("Bound sky and %s addresses", bindReq.CoinType)
-
-		if err := httputil.JSONResponse(w, BindResponse{
-			DepositAddress: boundAddr.Address,
-			CoinType:       boundAddr.CoinType,
-			BuyMethod:      boundAddr.BuyMethod,
-		}); err != nil {
-			log.WithError(err).Error(err)
-		}
-	}
-}
-
-// StatusResponse http response for /api/status
-type StatusResponse struct {
-	Statuses []exchange.DepositStatus `json:"statuses,omitempty"`
-}
-
-// StatusHandler returns the deposit status of specific skycoin address
-// Method: GET
-// URI: /api/status
-// Args:
-//     skyaddr
-func StatusHandler(s *HTTPServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		log := logger.FromContext(ctx)
-
-		if !validMethod(ctx, w, r, []string{http.MethodGet}) {
-			return
-		}
-
-		skyAddr := r.URL.Query().Get("skyaddr")
-
-		// Remove extraneous whitespace
-		skyAddr = strings.Trim(skyAddr, "\n\t ")
-
-		if skyAddr == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("Missing skyaddr"))
-			return
-		}
-
-		log = log.WithField("skyAddr", skyAddr)
-		ctx = logger.WithContext(ctx, log)
-
-		log.Info()
-
-		if !verifySkycoinAddress(ctx, w, skyAddr) {
-			return
-		}
-
-		log.Info("Sending StatusRequest to teller")
-
-		depositStatuses, err := s.service.GetDepositStatuses(skyAddr)
-		if err != nil {
-			log.WithError(err).Error("service.GetDepositStatuses failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-
-		log = log.WithFields(logrus.Fields{
-			"depositStatuses":    depositStatuses,
-			"depositStatusesLen": len(depositStatuses),
-		})
-		log.Info("Got depositStatuses")
-
-		if err := httputil.JSONResponse(w, StatusResponse{
-			Statuses: depositStatuses,
-		}); err != nil {
-			log.WithError(err).Error(err)
-		}
-	}
-}
-
-// ConfigResponse http response for /api/config
-type ConfigResponse struct {
-	Enabled                  bool   `json:"enabled"`
-	BtcConfirmationsRequired int64  `json:"btc_confirmations_required"`
-	EthConfirmationsRequired int64  `json:"eth_confirmations_required"`
-	MaxBoundAddresses        int    `json:"max_bound_addrs"`
-	SkyBtcExchangeRate       string `json:"sky_btc_exchange_rate"`
-	SkyEthExchangeRate       string `json:"sky_eth_exchange_rate"`
-	MaxDecimals              int    `json:"max_decimals"`
-}
-
-// ConfigHandler returns the teller configuration
-// Method: GET
-// URI: /api/config
-func ConfigHandler(s *HTTPServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		log := logger.FromContext(ctx)
-
-		if !validMethod(ctx, w, r, []string{http.MethodGet}) {
-			return
-		}
-
-		// Convert the exchange rate to a skycoin balance string
-		rate := s.cfg.SkyExchanger.SkyBtcExchangeRate
-		maxDecimals := s.cfg.SkyExchanger.MaxDecimals
-		dropletsPerBTC, err := exchange.CalculateBtcSkyValue(exchange.SatoshisPerBTC, rate, maxDecimals)
-		if err != nil {
-			log.WithError(err).Error("exchange.CalculateBtcSkyValue failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-
-		skyPerBTC, err := droplet.ToString(dropletsPerBTC)
-		if err != nil {
-			log.WithError(err).Error("droplet.ToString failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-		rate = s.cfg.SkyExchanger.SkyEthExchangeRate
-		dropletsPerETH, err := exchange.CalculateEthSkyValue(big.NewInt(exchange.WeiPerETH), rate, maxDecimals)
-		if err != nil {
-			log.WithError(err).Error("exchange.CalculateEthSkyValue failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-		skyPerETH, err := droplet.ToString(dropletsPerETH)
-		if err != nil {
-			log.WithError(err).Error("droplet.ToString failed")
-			errorResponse(ctx, w, http.StatusInternalServerError, errInternalServerError)
-			return
-		}
-
-		if err := httputil.JSONResponse(w, ConfigResponse{
-			Enabled:                  s.cfg.Teller.BindEnabled,
-			BtcConfirmationsRequired: s.cfg.BtcScanner.ConfirmationsRequired,
-			EthConfirmationsRequired: s.cfg.EthScanner.ConfirmationsRequired,
-			SkyBtcExchangeRate:       skyPerBTC,
-			SkyEthExchangeRate:       skyPerETH,
-			MaxDecimals:              maxDecimals,
-			MaxBoundAddresses:        s.cfg.Teller.MaxBoundAddresses,
-		}); err != nil {
-			log.WithError(err).Error(err)
-		}
-	}
-}
-
-// ExchangeStatusResponse http response for /api/exchange-status
-type ExchangeStatusResponse struct {
-	Error   string                        `json:"error"`
-	Balance ExchangeStatusResponseBalance `json:"balance"`
-}
-
-// ExchangeStatusResponseBalance is the balance field of ExchangeStatusResponse
-type ExchangeStatusResponseBalance struct {
-	Coins string `json:"coins"`
-	Hours string `json:"hours"`
-}
-
-// ExchangeStatusHandler returns the status of the exchanger
-// Method: GET
-// URI: /api/exchange-status
-func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		log := logger.FromContext(ctx)
-
-		if !validMethod(ctx, w, r, []string{http.MethodGet}) {
-			return
-		}
-
-		errorMsg := ""
-		err := s.exchanger.Status()
-
-		// If the status is an RPCError, the most likely cause is that the
-		// wallet has an insufficient balance (other causes could be a temporary
-		// application error, or a bug in the skycoin node).
-		// Errors that are not RPCErrors are transient and common, such as
-		// exchange.ErrNotConfirmed, which will happen frequently and temporarily.
-		switch err.(type) {
-		case sender.RPCError:
-			errorMsg = err.Error()
-		default:
-		}
-
-		// Get the wallet balance, but ignore any error. If an error occurs,
-		// return a balance of 0
-		bal, err := s.exchanger.Balance()
-		coins := "0.000000"
-		hours := "0"
-		if err != nil {
-			log.WithError(err).Error("s.exchange.Balance failed")
-		} else {
-			coins = bal.Coins
-			hours = bal.Hours
-		}
-
-		resp := ExchangeStatusResponse{
-			Error: errorMsg,
-			Balance: ExchangeStatusResponseBalance{
-				Coins: coins,
-				Hours: hours,
-			},
-		}
-
-		log.WithField("resp", resp).Info()
-
-		if err := httputil.JSONResponse(w, resp); err != nil {
-			log.WithError(err).Error(err)
-		}
-	}
 }
 
 func validMethod(ctx context.Context, w http.ResponseWriter, r *http.Request, allowed []string) bool {

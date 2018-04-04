@@ -7,9 +7,26 @@ teller: ## Run teller. To add arguments, do 'make ARGS="--foo" teller'.
 	go run cmd/teller/teller.go ${ARGS}
 
 test: ## Run tests
-	go test ./cmd/... -timeout=1m -cover
-	go test ./src/... -timeout=1m -cover
+	go test ./cmd/... -timeout=1m -cover ${PARALLEL}
+	go test ./src/addrs/... -timeout=30s -cover ${PARALLEL}
+	go test ./src/config/... -timeout=30s -cover ${PARALLEL}
+	go test ./src/exchange/... -timeout=4m -cover ${PARALLEL}
+	go test ./src/monitor/... -timeout=30s -cover ${PARALLEL}
+	go test ./src/scanner/... -timeout=4m -cover ${PARALLEL} ${MIN_SHUTDOWN_WAIT}
+	go test ./src/sender/... -timeout=1m -cover ${PARALLEL}
+	go test ./src/teller/... -timeout=30s -cover ${PARALLEL}
+	go test ./src/util/... -timeout=30s -cover ${PARALLEL}
 
+test-race: ## Run tests with -race. Note: expected to fail, but look for "DATA RACE" failures specifically
+	go test ./cmd/... -timeout=1m -race ${PARALLEL}
+	go test ./src/addrs/... -timeout=30s -race ${PARALLEL}
+	go test ./src/config/... -timeout=30s -race ${PARALLEL}
+	go test ./src/exchange/... -timeout=4m -race ${PARALLEL}
+	go test ./src/monitor/... -timeout=30s -race ${PARALLEL}
+	go test ./src/scanner/... -timeout=4m -race ${PARALLEL} ${MIN_SHUTDOWN_WAIT}
+	go test ./src/sender/... -timeout=1m -race ${PARALLEL}
+	go test ./src/teller/... -timeout=30s -race ${PARALLEL}
+	go test ./src/util/... -timeout=30s -race ${PARALLEL}
 lint: ## Run linters. Use make install-linters first.
 	vendorcheck ./...
 	gometalinter --deadline=3m -j 2 --disable-all --tests --vendor \
@@ -31,7 +48,7 @@ lint: ## Run linters. Use make install-linters first.
 		-E unparam \
 		-E varcheck \
 		-E vet \
-		./...
+		./src/... ./cmd/...
 
 check: lint test ## Run tests and linters
 
@@ -48,11 +65,9 @@ install-linters: ## Install linters
 	gometalinter --vendored-linters --install
 
 format:  # Formats the code. Must have goimports installed (use make install-linters).
-	# This sorts imports by [stdlib, 3rdpart, skycoin/skycoin, skycoin/teller]
-	goimports -w -local github.com/skycoin/teller ./cmd
-	goimports -w -local github.com/skycoin/teller ./src
-	goimports -w -local github.com/skycoin/skycoin ./cmd
-	goimports -w -local github.com/skycoin/skycoin ./src
+	# This sorts imports by [stdlib, 3rdpart, kittycash/teller]
+	goimports -w -local github.com/kittycash/teller ./cmd
+	goimports -w -local github.com/kittycash/teller ./src
 	# This performs code simplifications
 	gofmt -s -w ./cmd
 	gofmt -s -w ./src

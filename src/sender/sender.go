@@ -3,8 +3,7 @@ package sender
 import (
 	"errors"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-	"github.com/skycoin/skycoin/src/coin"
+	"github.com/kittycash/wallet/src/iko"
 )
 
 var (
@@ -16,10 +15,10 @@ var (
 
 // Sender provids apis for sending skycoin
 type Sender interface {
-	CreateTransaction(string, uint64) (*coin.Transaction, error)
-	BroadcastTransaction(*coin.Transaction) *BroadcastTxResponse
-	IsTxConfirmed(string) *ConfirmResponse
-	Balance() (*cli.Balance, error)
+	CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error)
+	BroadcastTransaction(*iko.Transaction) *BroadcastTxResponse
+	IsTxConfirmed(Txid string) *ConfirmResponse
+	Balance() (int, error)
 }
 
 // RetrySender provids helper function to send coins with Send service
@@ -36,12 +35,12 @@ func NewRetrySender(s *SendService) *RetrySender {
 }
 
 // CreateTransaction creates a transaction offline
-func (s *RetrySender) CreateTransaction(recvAddr string, coins uint64) (*coin.Transaction, error) {
-	return s.s.SkyClient.CreateTransaction(recvAddr, coins)
+func (s *RetrySender) CreateTransaction(recvAddr string, kittyID iko.KittyID) (*iko.Transaction, error) {
+	return s.s.KittyClient.CreateTransaction(recvAddr, kittyID, s.s.secKey)
 }
 
 // BroadcastTransaction sends a transaction in a goroutine
-func (s *RetrySender) BroadcastTransaction(tx *coin.Transaction) *BroadcastTxResponse {
+func (s *RetrySender) BroadcastTransaction(tx *iko.Transaction) *BroadcastTxResponse {
 	rspC := make(chan *BroadcastTxResponse, 1)
 
 	go func() {
@@ -69,6 +68,6 @@ func (s *RetrySender) IsTxConfirmed(txid string) *ConfirmResponse {
 }
 
 // Balance returns the remaining balance of the sender
-func (s *RetrySender) Balance() (*cli.Balance, error) {
-	return s.s.SkyClient.Balance()
+func (s *RetrySender) Balance() (int, error) {
+	return s.s.KittyClient.Balance()
 }

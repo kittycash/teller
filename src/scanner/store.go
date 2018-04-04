@@ -8,18 +8,18 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
 
-	"github.com/skycoin/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/dbutil"
 )
 
 const (
 	// CoinTypeBTC is BTC coin type
 	CoinTypeBTC = "BTC"
-	// CoinTypeETH is ETH coin type
-	CoinTypeETH = "ETH"
+	// CoinTypeSKY is SKY coin type
+	CoinTypeSKY = "SKY"
 )
 
 var (
-	// DepositBkt maps a BTC transaction to a Deposit
+	// DepositBkt maps a deposit transaction to a Deposit
 	DepositBkt = []byte("deposit_value")
 
 	// deposit address bucket
@@ -37,8 +37,8 @@ func GetScanMetaBkt(coinType string) ([]byte, error) {
 	switch coinType {
 	case CoinTypeBTC:
 		suffix = "btc"
-	case CoinTypeETH:
-		suffix = "eth"
+	case CoinTypeSKY:
+		suffix = "sky"
 	default:
 		return nil, ErrUnsupportedCoinType
 	}
@@ -221,7 +221,7 @@ func (s *Store) SetDepositProcessed(dvKey string) error {
 			return errors.New("CRITICAL ERROR: dv.ID() != dvKey")
 		}
 
-		dv.Processed = true
+		dv.Status = DepositAccepted
 
 		return dbutil.PutBucketValue(tx, DepositBkt, dv.ID(), dv)
 	})
@@ -238,7 +238,7 @@ func (s *Store) GetUnprocessedDeposits() ([]Deposit, error) {
 				return err
 			}
 
-			if !dv.Processed {
+			if dv.Status == DepositNotProcessed {
 				dvs = append(dvs, dv)
 			}
 
@@ -281,6 +281,7 @@ func (s *Store) scanBlock(block *CommonBlock, coinType string) ([]Deposit, error
 	var dvs []Deposit
 
 	if err := s.db.Update(func(tx *bolt.Tx) error {
+		// return a list of deposit addresses
 		addrs, err := s.getScanAddressesTx(tx, coinType)
 		if err != nil {
 			s.log.WithError(err).Error("getScanAddressesTx failed")
@@ -317,7 +318,6 @@ func (s *Store) scanBlock(block *CommonBlock, coinType string) ([]Deposit, error
 	return dvs, nil
 }
 
-// ScanBTCBlock scan the given block and returns the next block hash or error
 func scanSpecifiedBlock(block *CommonBlock, coinType string, depositAddrs []string) ([]Deposit, error) {
 	var dv []Deposit
 
@@ -339,6 +339,7 @@ func scanSpecifiedBlock(block *CommonBlock, coinType string, depositAddrs []stri
 						Height:   block.Height,
 						Tx:       tx.Txid,
 						N:        v.N,
+						Status:   DepositNotProcessed,
 					})
 				}
 			}

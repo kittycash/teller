@@ -38,6 +38,7 @@ type BaseScanner struct {
 	scannedDeposits chan Deposit
 	quit            chan struct{}
 	done            chan struct{}
+	CoinType        string
 }
 
 // CommonVout common transaction output info
@@ -62,7 +63,7 @@ type CommonBlock struct {
 }
 
 // NewBaseScanner creates base scanner instance
-func NewBaseScanner(store Storer, log logrus.FieldLogger, cfg Config) *BaseScanner {
+func NewBaseScanner(store Storer, log logrus.FieldLogger, coinType string, cfg Config) *BaseScanner {
 	if cfg.ScanPeriod == 0 {
 		cfg.ScanPeriod = blockScanPeriod
 	}
@@ -78,6 +79,7 @@ func NewBaseScanner(store Storer, log logrus.FieldLogger, cfg Config) *BaseScann
 		scannedDeposits: make(chan Deposit, cfg.DepositBufferSize),
 		done:            make(chan struct{}),
 		Cfg:             cfg,
+		CoinType:        coinType,
 	}
 }
 
@@ -172,9 +174,9 @@ func (s *BaseScanner) GetScannedDepositChan() chan<- Deposit {
 
 // Shutdown shutdown base scanner
 func (s *BaseScanner) Shutdown() {
-	close(s.depositC)
 	close(s.quit)
 	<-s.done
+	close(s.depositC)
 }
 
 // Run starts the scanner
@@ -213,7 +215,7 @@ func (s *BaseScanner) Run(
 	}
 
 	initHash, initHeight := getBlockHashAndHeight(initialBlock)
-	s.log.WithFields(logrus.Fields{
+	log.WithFields(logrus.Fields{
 		"initialHash":   initHash,
 		"initialHeight": initHeight,
 	}).Info("Begin scanning blockchain")
@@ -223,7 +225,7 @@ func (s *BaseScanner) Run(
 	// deposit addresses. If a matching deposit is found, it saves it to the DB.
 	log.Info("Launching scan goroutine")
 	wg.Add(1)
-	go func(block *CommonBlock) {
+	go func(log logrus.FieldLogger, block *CommonBlock) {
 		defer wg.Done()
 		defer log.Info("Scan goroutine exited")
 
@@ -309,14 +311,14 @@ func (s *BaseScanner) Run(
 				continue
 			}
 		}
-	}(initialBlock)
+	}(log, initialBlock)
 
 	// This loop gets the head deposit value (from an array saved in the db)
 	// It sends each head to depositC, which is processed by Exchange.
 	// The loop blocks until the Exchange writes to the ErrC channel
 	log.Info("Launching deposit pipe goroutine")
 	wg.Add(1)
-	go func() {
+	go func(log logrus.FieldLogger) {
 		defer wg.Done()
 		defer log.Info("Deposit pipe goroutine exited")
 		for {
@@ -334,7 +336,7 @@ func (s *BaseScanner) Run(
 				}
 			}
 		}
-	}()
+	}(log)
 
 	wg.Wait()
 

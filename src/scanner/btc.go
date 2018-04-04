@@ -42,7 +42,7 @@ type BTCScanner struct {
 
 // NewBTCScanner creates scanner instance
 func NewBTCScanner(log logrus.FieldLogger, store Storer, btc BtcRPCClient, cfg Config) (*BTCScanner, error) {
-	bs := NewBaseScanner(store, log.WithField("prefix", "scanner.btc"), cfg)
+	bs := NewBaseScanner(store, log.WithField("prefix", "scanner.btc"), CoinTypeBTC, cfg)
 
 	return &BTCScanner{
 		btcClient: btc,
@@ -66,8 +66,9 @@ func (s *BTCScanner) Shutdown() {
 }
 
 // scanBlock scans for a new BTC block every ScanPeriod.
-// When a new block is found, it compares the block against our scanning
-// deposit addresses. If a matching deposit is found, it saves it to the DB.
+// When a new block is found, it compares the block deposit addresses
+// against our scanning deposit addresses.
+// If a match is found, it saves it to the DB.
 func (s *BTCScanner) scanBlock(block *CommonBlock) (int, error) {
 	log := s.log.WithField("hash", block.Hash)
 	log = log.WithField("height", block.Height)
