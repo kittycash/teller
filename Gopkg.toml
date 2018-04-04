@@ -19,7 +19,9 @@
 # [[override]]
 #  name = "github.com/x/y"
 #  version = "2.4.0"
-
+[prune]
+    unused-packages = true
+    go-tests = true
 
 [[constraint]]
   branch = "master"
@@ -38,25 +40,12 @@
   name = "github.com/btcsuite/btcutil"
 
 [[constraint]]
-  name = "github.com/fortytw2/leaktest"
-  version = "1.1.0"
-
-[[constraint]]
   name = "github.com/google/gops"
   version = "0.3.1"
 
 [[constraint]]
-  name = "github.com/skycoin/skycoin"
-  # This revision is v0.21.1 plus a fix for base58 address verification
-  revision = "c86e0afdebd0c06ee8ea8d01ac7dce84fef04ddc"
-
-[[constraint]]
   name = "github.com/stretchr/testify"
-  version = "1.2.0"
-
-[[constraint]]
-  name = "github.com/sirupsen/logrus"
-  version = "v1.0.3"
+  version = "1.2.1"
 
 [[constraint]]
   name = "github.com/gz-c/logrus-prefixed-formatter"
@@ -67,5 +56,17 @@
   version = "v2.3.0"
 
 [[constraint]]
-  name = "github.com/ethereum/go-ethereum"
-  version = "1.7.3"
+  name = "github.com/sirupsen/logrus"
+  version = "v1.0.3"
+
+[[override]]
+  branch = "master"
+  name = "github.com/RedisLabs/redisearch-go"
+
+[[override]]
+  name = "github.com/skycoin/net"
+  revision = "4bcee2eb0c36a33dd22757247c83ab7e78c50834"
+
+[[override]]
+  name = "github.com/skycoin/skycoin"
+  version = "0.22.0"

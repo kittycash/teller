@@ -72,7 +72,7 @@ When a new release is published, `develop` will be merged to `master` then tagge
 The config file can be specified with `-c` or `--config` from the command line.
 
 Otherwise, the config file is loaded from the application data directory
-(defaulted to `$HOME/.teller-skycoin`), or the local working directory.
+(defaulted to `$HOME/.teller-kittycash`), or the local working directory.
 
 The application data directory can be changed from the command line with
 `-d` or `--dir`.
@@ -88,7 +88,7 @@ Description of the config file:
 * `debug` [bool]: Enable debug logging.
 * `profile` [bool]: Enable gops profiler.
 * `logfile` [string]: Log file.  It can be an absolute path or be relative to the working directory.
-* `dbfile` [string]: Database file, saved inside the `~/.teller-skycoin` folder. Do not use a path.
+* `dbfile` [string]: Database file, saved inside the `~/.teller-kittycash` folder. Do not use a path.
 * `btc_addresses` [string]: Filepath of the btc_addresses.json file. See [generate BTC addresses](#generate-btc-addresses).
 * `eth_addresses` [string]: Filepath of the eth_addresses.json file. See [generate ETH addresses](#generate-eth-addresses).
 * `teller.max_bound_addrs` [int]: Maximum number addresses allowed to bind per skycoin address.
@@ -114,7 +114,6 @@ Description of the config file:
 * `sky_exchanger.tx_confirmation_check_wait` [duration]: How often to check for a sent skycoin transaction's confirmation.
 * `sky_exchanger.send_enabled` [bool]: Disable this to prevent sending of coins (all other processing functions normally, e.g.. deposits are received)
 * `web.behind_proxy` [bool]: Set true if running behind a proxy.
-* `web.static_dir` [string]: Location of static web assets.
 * `web.throttle_max` [int]: Maximum number of API requests allowed per `web.throttle_duration`.
 * `web.throttle_duration` [int]: Duration of throttling, pairs with `web.throttle_max`.
 * `web.http_addr` [string]: Host address to expose the HTTP listener on.

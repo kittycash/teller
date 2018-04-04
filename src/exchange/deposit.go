@@ -6,8 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/skycoin/teller/src/scanner"
-	"github.com/skycoin/teller/src/util/mathutil"
+	"github.com/kittycash/teller/src/scanner"
 )
 
 // Status deposit Status
@@ -18,9 +17,11 @@ const (
 	StatusWaitDeposit Status = iota
 	// StatusWaitSend deposit is ready for send
 	StatusWaitSend
-	// StatusWaitConfirm coins sent, but not confirmed yet
+	// StatusWaitPartial partial deposit of a kitty box payment amount
+	StatusWaitPartial
+	// StatusWaitConfirm kitty sent, but not confirmed yet
 	StatusWaitConfirm
-	// StatusDone coins sent and confirmed
+	// StatusDone kitty sent and confirmed
 	StatusDone
 	// StatusUnknown fallback value
 	StatusUnknown
@@ -30,6 +31,7 @@ const (
 
 var statusString = []string{
 	StatusWaitDeposit: "waiting_deposit",
+	StatusWaitPartial: "waiting_partial",
 	StatusWaitSend:    "waiting_send",
 	StatusWaitConfirm: "waiting_confirm",
 	StatusDone:        "done",
@@ -46,6 +48,8 @@ func NewStatusFromStr(st string) Status {
 	switch st {
 	case statusString[StatusWaitDeposit]:
 		return StatusWaitDeposit
+	case statusString[StatusWaitPartial]:
+		return StatusWaitPartial
 	case statusString[StatusWaitSend]:
 		return StatusWaitSend
 	case statusString[StatusWaitConfirm]:
@@ -61,37 +65,46 @@ func NewStatusFromStr(st string) Status {
 
 // BoundAddress records information about an address binding
 type BoundAddress struct {
-	SkyAddress string
-	Address    string
-	CoinType   string
-	BuyMethod  string
+	KittyID  string
+	Address  string
+	CoinType string
 }
 
 // DepositInfo records the deposit info
 type DepositInfo struct {
 	Seq            uint64
 	UpdatedAt      int64
-	Status         Status // TODO -- migrate to string statuses?
+	Status         Status
 	CoinType       string
-	SkyAddress     string
-	BuyMethod      string
+	KittyID        string // used to fetch total payment amount
 	DepositAddress string
-	DepositID      string
-	Txid           string
-	ConversionRate string // SKY per other coin, as a decimal string (allows integers, floats, fractions)
-	DepositValue   int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC)
-	SkySent        uint64 // SKY sent, measured in droplets
-	Error          string // An error that occurred during processing
+	//TODO (therealssj): do I need this?
+	OwnerAddress string // address of the user who reserved the box
+	DepositID    string
+	Txid         string // txhash
+	DepositValue int64  // Deposit amount. Should be measured in the smallest unit possible (e.g. satoshis for BTC or droplets for skycoin)
+	Error        string // An error that occurred during processing
 	// The original Deposit is saved for the records, in case there is a mistake.
 	// Do not use this data directly.  All necessary data is copied to the top level
 	// of DepositInfo (e.g. DepositID, DepositAddress, DepositValue, CoinType).
 	Deposit scanner.Deposit
 }
 
+// DepositTrack keeps track of payments towards a kitty reservation
+type DepositTrack struct {
+	// AmountDeposited is the amount deposited so far
+	AmountDeposited int64
+	// KittyID is id of kitty inside the reservation box
+	KittyID string
+	// AmountRequired is the total amount to be deposited
+	AmountRequired int64
+}
+
 // DepositStats records overall statistics about deposits
 type DepositStats struct {
 	TotalBTCReceived int64 `json:"total_btc_received"`
-	TotalSKYSent     int64 `json:"total_sky_sent"`
+	TotalSKYReceived int64 `json:"total_sky_received"`
+	TotalBoxesSent   int64 `json:"total_boxes_sent"`
 }
 
 // ValidateForStatus does a consistency check of the data based upon the Status value
@@ -101,8 +114,8 @@ func (di DepositInfo) ValidateForStatus() error {
 		if di.Seq == 0 {
 			return errors.New("Seq missing")
 		}
-		if di.SkyAddress == "" {
-			return errors.New("SkyAddress missing")
+		if di.KittyID == "" {
+			return errors.New("KittyID missing")
 		}
 		if di.DepositAddress == "" {
 			return errors.New("DepositAddress missing")
@@ -115,16 +128,6 @@ func (di DepositInfo) ValidateForStatus() error {
 		}
 		if di.DepositValue == 0 {
 			return errors.New("DepositValue is zero")
-		}
-		if _, err := mathutil.ParseRate(di.ConversionRate); err != nil {
-			return err
-		}
-		switch di.BuyMethod {
-		case BuyMethodDirect, BuyMethodPassthrough:
-		case "":
-			return errors.New("BuyMethod missing")
-		default:
-			return errors.New("BuyMethod invalid")
 		}
 
 		return nil
@@ -145,12 +148,13 @@ func (di DepositInfo) ValidateForStatus() error {
 		if di.Txid == "" {
 			return errors.New("Txid missing")
 		}
-		if di.SkySent == 0 {
-			return errors.New("SkySent is zero")
-		}
+
 		return checkWaitSend()
 
 	case StatusWaitSend:
+		return checkWaitSend()
+
+	case StatusWaitPartial:
 		return checkWaitSend()
 
 	case StatusWaitDecide:

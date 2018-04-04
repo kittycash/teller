@@ -3,6 +3,7 @@ package scanner
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"testing"
 	"time"
@@ -12,20 +13,22 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skycoin/teller/src/util/dbutil"
-	"github.com/skycoin/teller/src/util/testutil"
+	"github.com/kittycash/teller/src/util/dbutil"
+	"github.com/kittycash/teller/src/util/testutil"
 )
 
 const (
-	// run tests in parallel
-	parallel        = true
-	minShutdownWait = time.Second * 2 // set to time.Second * 5 when using -race
+	// Run some tests in parallel. To effectively disable, use -parallel=1
+	parallel = true
 )
 
 var (
 	dummyBlocksBktName = []byte("blocks")
 
 	errNoBlockHash = errors.New("no block hash found for height")
+
+	minShutdownWait = flag.Duration("min-shutdown-wait", time.Second*2,
+		"minimum amount of time to wait before shutting down a scanner and checking its output. increase on slow systems or when using -race")
 )
 
 type dummyBtcrpcclient struct {
@@ -186,7 +189,7 @@ func testBtcScannerRunProcessedLoop(t *testing.T, scr *BTCScanner, nDeposits int
 					return err
 				}
 
-				require.True(t, d.Processed)
+				//require.True(t, d.Processed)
 				require.Equal(t, CoinTypeBTC, d.CoinType)
 				require.NotEmpty(t, d.Address)
 				require.NotEmpty(t, d.Value)
@@ -204,8 +207,8 @@ func testBtcScannerRunProcessedLoop(t *testing.T, scr *BTCScanner, nDeposits int
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := time.Duration(int64(scr.Base.(*BaseScanner).Cfg.ScanPeriod) * nDeposits * 3)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {
@@ -368,33 +371,33 @@ func testBtcScannerLoadUnprocessedDeposits(t *testing.T, btcDB *bolt.DB) {
 	// NOTE: This data is fake, but the addresses and Txid are valid
 	unprocessedDeposits := []Deposit{
 		{
-			CoinType:  CoinTypeBTC,
-			Address:   "1LEkderht5M5yWj82M87bEd4XDBsczLkp9",
-			Value:     1e8,
-			Height:    23505,
-			Tx:        "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
-			N:         1,
-			Processed: false,
+			CoinType: CoinTypeBTC,
+			Address:  "1LEkderht5M5yWj82M87bEd4XDBsczLkp9",
+			Value:    1e8,
+			Height:   23505,
+			Tx:       "239e007dc20805add047d305cdfb87de1bae9bea1e47acbf58f38731ad58d70d",
+			N:        1,
+			Status:   DepositNotProcessed,
 		},
 		{
-			CoinType:  CoinTypeBTC,
-			Address:   "16Lr3Zhjjb7KxeDxGPUrh3DMo29Lstif7j",
-			Value:     10e8,
-			Height:    23505,
-			Tx:        "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
-			N:         1,
-			Processed: false,
+			CoinType: CoinTypeBTC,
+			Address:  "16Lr3Zhjjb7KxeDxGPUrh3DMo29Lstif7j",
+			Value:    10e8,
+			Height:   23505,
+			Tx:       "bf41a5352b6d59a401cd946432117b25fd5fc43186aef5cbbe3170c40050d104",
+			N:        1,
+			Status:   DepositNotProcessed,
 		},
 	}
 
 	processedDeposit := Deposit{
-		CoinType:  CoinTypeBTC,
-		Address:   "1GH9ukgyetEJoWQFwUUeLcWQ8UgVgipLKb",
-		Value:     100e8,
-		Height:    23517,
-		Tx:        "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
-		N:         1,
-		Processed: true,
+		CoinType: CoinTypeBTC,
+		Address:  "1GH9ukgyetEJoWQFwUUeLcWQ8UgVgipLKb",
+		Value:    100e8,
+		Height:   23517,
+		Tx:       "d61be86942d69dc7ba6d49c817957ecd0918798f030c73739206e6f48fe2a7c5",
+		N:        1,
+		Status:   DepositAccepted,
 	}
 
 	err := scr.Base.GetStorer().(*Store).db.Update(func(tx *bolt.Tx) error {
@@ -456,7 +459,7 @@ func testBtcScannerProcessDepositError(t *testing.T, btcDB *bolt.DB) {
 					return err
 				}
 
-				require.False(t, d.Processed)
+				//require.False(t, d.Processed)
 				require.Equal(t, CoinTypeBTC, d.CoinType)
 				require.Equal(t, "1LEkderht5M5yWj82M87bEd4XDBsczLkp9", d.Address)
 				require.NotEmpty(t, d.Value)
@@ -474,8 +477,8 @@ func testBtcScannerProcessDepositError(t *testing.T, btcDB *bolt.DB) {
 	// This only needs to wait at least 1 second normally, but if testing
 	// with -race, it needs to wait 5.
 	shutdownWait := time.Duration(int64(scr.Base.(*BaseScanner).Cfg.ScanPeriod) * nDeposits * 2)
-	if shutdownWait < minShutdownWait {
-		shutdownWait = minShutdownWait
+	if shutdownWait < *minShutdownWait {
+		shutdownWait = *minShutdownWait
 	}
 
 	time.AfterFunc(shutdownWait, func() {

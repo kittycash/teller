@@ -1,16 +1,15 @@
 package sender
 
 import (
-	"errors"
+	"fmt"
 
-	"github.com/skycoin/skycoin/src/api/cli"
-	"github.com/skycoin/skycoin/src/api/webrpc"
+	"github.com/kittycash/wallet/src/iko"
+	"github.com/kittycash/wallet/src/rpc"
+
 	"github.com/skycoin/skycoin/src/cipher"
-	"github.com/skycoin/skycoin/src/coin"
-	"github.com/skycoin/skycoin/src/wallet"
 )
 
-// RPCError wraps errors from the skycoin CLI/RPC library
+// RPCError wraps errors from the kittycash RPC library
 type RPCError struct {
 	error
 }
@@ -20,95 +19,96 @@ func NewRPCError(err error) RPCError {
 	return RPCError{err}
 }
 
-// RPC provides methods for sending coins
+// RPC provides methods for sending kitties
 type RPC struct {
-	walletFile string
-	changeAddr string
-	rpcClient  *webrpc.Client
+	rpcAddr   string
+	rpcClient *rpc.Client
+	kittyAddr string
 }
 
-// NewRPC creates RPC instance
-func NewRPC(wltFile, rpcAddr string) (*RPC, error) {
-	wlt, err := wallet.Load(wltFile)
+// NewRPC creates an RPC instance
+func NewRPC(rpcAddr string) (*RPC, error) {
+	client, err := rpc.NewClient(&rpc.ClientConfig{
+		Address: rpcAddr,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	if len(wlt.Entries) == 0 {
-		return nil, errors.New("Wallet is empty")
-	}
-
-	rpcClient := &webrpc.Client{
-		Addr: rpcAddr,
-	}
-
 	return &RPC{
-		walletFile: wltFile,
-		changeAddr: wlt.Entries[0].Address.String(),
-		rpcClient:  rpcClient,
+		rpcAddr:   rpcAddr,
+		rpcClient: client,
 	}, nil
 }
 
-// CreateTransaction creates a raw Skycoin transaction offline, that can be broadcast later
-func (c *RPC) CreateTransaction(recvAddr string, amount uint64) (*coin.Transaction, error) {
-	// TODO -- this can support sending to multiple receivers at once,
-	// which would be necessary if the exchange was busy
-	sendAmount := cli.SendAmount{
-		Addr:  recvAddr,
-		Coins: amount,
-	}
-
-	if err := validateSendAmount(sendAmount); err != nil {
+// CreateTransaction creates a transfer kitty transaction
+func (c *RPC) CreateTransaction(recvAddr string, kittyID iko.KittyID, key cipher.SecKey) (*iko.Transaction, error) {
+	kittyOwner, err := c.rpcClient.KittyOwner(&rpc.KittyOwnerIn{
+		KittyID: kittyID,
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	txn, err := cli.CreateRawTxFromWallet(c.rpcClient, c.walletFile, c.changeAddr, []cli.SendAmount{sendAmount})
+	toAddr, err := cipher.DecodeBase58Address(recvAddr)
 	if err != nil {
-		return nil, RPCError{err}
+		return nil, fmt.Errorf("Unable to decode %v: %v", recvAddr, err.Error())
 	}
 
-	return txn, nil
+	// create a transaction and sign it using the genesis secret key
+	inTx := iko.Transaction{
+		KittyID: kittyID,
+		In:      kittyOwner.Unspent,
+		Out:     kittyOwner.Address,
+	}
+	inTx.Sig = inTx.Sign(key)
+
+	// create a transfer tx
+	transferTx, err := iko.NewTransferTx(&inTx, toAddr, key)
+	if err != nil {
+		return nil, err
+	}
+	return transferTx, nil
 }
 
-// BroadcastTransaction broadcasts a transaction and returns its txid
-func (c *RPC) BroadcastTransaction(tx *coin.Transaction) (string, error) {
-	txid, err := c.rpcClient.InjectTransaction(tx)
+// GetTransaction returns transaction by txhash
+func (c *RPC) GetTransaction(txHash iko.TxHash) (*iko.Transaction, error) {
+	txnIn := &rpc.TransactionIn{
+		TxHash: txHash,
+	}
+	txn, err := c.rpcClient.Transaction(txnIn)
 	if err != nil {
-		return "", RPCError{err}
+		return nil, err
 	}
 
-	return txid, nil
+	return &txn.Tx, nil
 }
 
-// GetTransaction returns transaction by txid
-func (c *RPC) GetTransaction(txid string) (*webrpc.TxnResult, error) {
-	txn, err := c.rpcClient.GetTransactionByID(txid)
+// InjectTransaction broadcasts a transaction and returns its seq
+func (c *RPC) InjectTransaction(tx *iko.Transaction) (string, error) {
+	txOut, err := c.rpcClient.InjectTx(&rpc.InjectTxIn{
+		Tx: *tx,
+	})
 	if err != nil {
-		return nil, RPCError{err}
+		return "", err
 	}
 
-	return txn, nil
+	return txOut.TxHash.Hex(), nil
+
 }
 
-// Balance returns the balance of a wallet
-func (c *RPC) Balance() (*cli.Balance, error) {
-	bal, err := cli.CheckWalletBalance(c.rpcClient, c.walletFile)
+// Balance returns the balance of an address
+func (c *RPC) Balance() (int, error) {
+	addr, err := cipher.DecodeBase58Address(c.kittyAddr)
 	if err != nil {
-		return nil, RPCError{err}
+		return 0, err
 	}
 
-	return &bal.Spendable, nil
-}
-
-func validateSendAmount(amt cli.SendAmount) error {
-	// validate the recvAddr
-	if _, err := cipher.DecodeBase58Address(amt.Addr); err != nil {
-		return err
+	balance, err := c.rpcClient.Balances(&rpc.BalancesIn{
+		Addresses: []cipher.Address{addr},
+	})
+	if err != nil {
+		return 0, err
 	}
 
-	if amt.Coins == 0 {
-		return errors.New("Skycoin send amount is 0")
-	}
-
-	return nil
+	return balance.Count, nil
 }
