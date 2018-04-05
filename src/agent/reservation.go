@@ -193,7 +193,9 @@ func (a *Agent) MakeReservation(tx *bolt.Tx, depositAddr, userAddr, kittyID, coi
 	}
 
 	// update the user
-	err = a.store.UpdateUserWithTx(tx, u)
+	updatedUser := *u
+	updatedUser.Reservations = append(updatedUser.Reservations, *reservation)
+	err = a.store.UpdateUserWithTx(tx, &updatedUser)
 	if err != nil {
 		a.log.WithError(err).Error("Storer.UpdateUser failed")
 		return err
