@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -176,15 +177,15 @@ func ExchangeStatusHandler(s *HTTPServer) http.HandlerFunc {
 
 // ReserveResponse represents the response of a reservation request
 type ReserveResponse struct {
-	DepositAddress string      `json:"deposit_address"`
-	CoinType       string      `json:"coin_type"`
-	Deadline       int64       `json:"deadline"`
-	KittyID        iko.KittyID `json:"kitty_id"`
+	DepositAddress string `json:"deposit_address"`
+	CoinType       string `json:"coin_type"`
+	Deadline       int64  `json:"deadline"`
+	KittyID        uint64 `json:"kitty_id"`
 }
 
 type reservationRequest struct {
 	UserAddress      string `json:"user_address"`
-	KittyID          string `json:"kitty_id"`
+	KittyID          uint64 `json:"kitty_id"`
 	CoinType         string `json:"coin_type"`
 	VerificationCode string `json:"verification_code"`
 }
@@ -231,8 +232,8 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
-		if reserveReq.KittyID == "" {
-			errorResponse(ctx, w, http.StatusBadRequest, errors.New("missing kitty id"))
+		if reserveReq.KittyID < 0 {
+			errorResponse(ctx, w, http.StatusBadRequest, errors.New("kitty id can not be negative"))
 			return
 		}
 
@@ -265,8 +266,9 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 			}
 		}()
 
+		kittyStr := strconv.FormatUint(reserveReq.KittyID, 10)
 		log.Info("Calling service.BindAddress")
-		boundAddr, err := s.service.BindAddressTx(tx, reserveReq.KittyID, reserveReq.CoinType)
+		boundAddr, err := s.service.BindAddressTx(tx, kittyStr, reserveReq.CoinType)
 		if err != nil {
 			log.WithError(err).Error("service.BindAddress failed")
 			switch err {
@@ -285,7 +287,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 
 		log.Info("Calling agent.MakeReservation")
 		err = s.service.agentManager.MakeReservation(tx, boundAddr.Address, reserveReq.UserAddress,
-			reserveReq.KittyID, reserveReq.CoinType, reserveReq.VerificationCode)
+			kittyStr, reserveReq.CoinType, reserveReq.VerificationCode)
 		if err != nil {
 			log.WithError(err).Error("s.agent.MakeReservation failed")
 			switch err {
@@ -297,27 +299,25 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 			return
 		}
 
-
-
 		// get user from usermanager
 		u, err := s.service.agentManager.UserManager.GetUser(reserveReq.UserAddress)
 		if err != nil {
 			log.WithError(err).Error("UserManager.GetUser failed")
-			httputil.ErrResponse(w, http.StatusInternalServerError)
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 		// get the reservation for the reservation map
-		reservation, err := s.service.agentManager.ReservationManager.GetReservationByKittyID(reserveReq.KittyID)
+		reservation, err := s.service.agentManager.ReservationManager.GetReservationByKittyID(kittyStr)
 		if err != nil {
 			log.WithError(err).Error("ReservationManager.GetReservationByKittyID failed")
-			httputil.ErrResponse(w, http.StatusInternalServerError)
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
 		ikoKittyID, err := iko.KittyIDFromString(reservation.KittyID)
 		if err != nil {
 			log.WithError(err).Error("iko.KittyIDFromString failed")
-			httputil.ErrResponse(w, http.StatusInternalServerError)
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -328,7 +328,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		})
 		if err != nil {
 			log.WithError(err).Error("KittyAPI.SetReservation failed")
-			httputil.ErrResponse(w, http.StatusInternalServerError)
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -336,7 +336,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		err = s.service.agentManager.Verifier.SatisfyCode(reserveReq.VerificationCode, reservation.KittyID)
 		if err != nil {
 			log.WithError(err).Error("Verifier.SatisfyCode failed")
-			httputil.ErrResponse(w, http.StatusInternalServerError)
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -344,6 +344,7 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		err = s.service.agentManager.UserManager.AddReservation(u, reservation)
 		if err != nil {
 			log.WithError(err).Error("UserManager.AddReservation failed")
+			errorResponse(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -354,17 +355,11 @@ func MakeReservationHandler(s *HTTPServer) http.HandlerFunc {
 		log = log.WithField("boundAddr", boundAddr)
 		log.Infof("Bound sky and %s addresses", reserveReq.CoinType)
 
-		kittyID, err := iko.KittyIDFromString(reserveReq.KittyID)
-		if err != nil {
-			errorResponse(ctx, w, http.StatusInternalServerError, err)
-			log.WithError(err).Error()
-			return
-		}
 		if err := httputil.JSONResponse(w, ReserveResponse{
 			DepositAddress: boundAddr.Address,
 			CoinType:       boundAddr.CoinType,
 			Deadline:       time.Now().Add(time.Hour * 24).UnixNano(),
-			KittyID:        kittyID,
+			KittyID:        reserveReq.KittyID,
 		}); err != nil {
 			errorResponse(ctx, w, http.StatusInternalServerError, err)
 			log.WithError(err).Error()
@@ -422,7 +417,7 @@ func GetReservationsHandler(s *HTTPServer) http.HandlerFunc {
 
 // GetDepositAddressResponse represents response of get deposit address request
 type GetDepositAddressResponse struct {
-	DepositAddress string `json:"deposit_address"`
+	DepositAddress string      `json:"deposit_address"`
 	KittyID        iko.KittyID `json:"kitty_id"`
 }
 
@@ -460,7 +455,7 @@ func GetDepositAddressHandler(s *HTTPServer) http.HandlerFunc {
 		kittyid, _ := iko.KittyIDFromString(kittyID)
 		if err := httputil.JSONResponse(w, GetDepositAddressResponse{
 			DepositAddress: addr,
-			KittyID: kittyid,
+			KittyID:        kittyid,
 		}); err != nil {
 			log.WithError(err).Error(err)
 		}
