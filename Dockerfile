@@ -1,24 +1,13 @@
 # teller build binaries
-# reference https://github.com/skycoin/teller
+# reference https://github.com/kittycash/teller
 FROM golang:1.9-alpine AS build-go
 
 RUN apk add --no-cache gcc musl-dev linux-headers
 
-COPY . $GOPATH/src/github.com/skycoin/teller
+COPY . $GOPATH/src/github.com/kittycash/teller
 
-RUN cd $GOPATH/src/github.com/skycoin/teller && \
+RUN cd $GOPATH/src/github.com/kittycash/teller && \
   CGO_ENABLED=1 GOOS=linux go install -ldflags "-s" -installsuffix cgo ./cmd/...
-
-
-# teller gui
-FROM node:8.9 AS build-node
-
-COPY . /teller
-
-RUN cd /teller/web && \
-    yarn && \
-    yarn build
-
 
 # teller image
 FROM alpine:3.7
@@ -31,9 +20,6 @@ USER teller
 
 # copy binaries
 COPY --from=build-go /go/bin/* /usr/bin/
-
-# copy gui
-COPY --from=build-node /teller/web/build /usr/local/teller/web/build
 
 # copy config
 COPY ./config.toml /usr/local/teller/

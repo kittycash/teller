@@ -1,11 +1,33 @@
+sudo: required
+
+services:
+- docker
+
+env:
+  global:
+  - REGISTRY_USER=kittycashrobot
+  - secure: GfwuC8uTsYV4hweBuALExZ1g6XwdlzqgAj+5hRiq6xMvHHuSJsUh/SbbKS/5h4otu7FSpjdI2wYaiMa50/iV6e+663ACVtGCOmLS0ERVsVsDlfAPcIoiFGUzY0PilG38S918lFcGQabwDedW8A2hmdGkRgYsvgctUi2yXZerC7v2D+8qSBNYgHJxwqS6ciXWD/ISJ+VxL+lfCzoFzaEevwpCAcj96UpdBmUrf3qYTygY3Bfx9UV5AYV7lWc2LPmB+Qx/WT1i6NPimftieaw1rwNyTtY81KYwH6LuUNooIR73qxU2mfuLUcrWpUJak5oNDtjj1fY9IgZX2ehv/Otfg618YQ+NhTEr88caiZhV70XDTaTkBwvHxINVfsVY/JKwq5l++xNp2UMwsE55ab0k0LFbYInUpWgTT/7tQyqaJuFjzpyaEkwGj3thM+qo+TA2Cu4ZWbuukl4geqN6xBWduaRe/L3SZbOGYOiFbn5hDDF1OeGT8kKkeeq4XTQWg934GjvFF3FK3i1y8pOJK2TdaFoteHzDwHrUtmkB3wi8LynafIyMpdGuPewH1Ikc+coR9LugXlrYToUHG9IAH/aRrRBIgr2z9g31DiQG6klXDCOm+OTez6z5SmiY+Y2d5ROXsIec6eCdmr48iuBlIaIc9fV7Uw9I6x1ZsXJliY4/FE4=
+
 language: go
 
 go:
-    - "1.9"
-    - "1.10"
+- '1.9'
+- '1.10'
 
-install:
-  - make install-linters
+before_script:
+- docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+- docker pull kittycash/teller || true
 
 script:
-  - make test
+- make test
+- "./docker-build.sh"
+
+after_script:
+- docker images
+
+deploy:
+  provider: script
+  script: "./docker-deploy.sh"
+  on:
+    all_branches: true
+    condition: $TRAVIS_BRANCH =~ ^develop|master$ || $(git tag --points-at HEAD) != ""
