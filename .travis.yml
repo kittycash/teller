@@ -26,7 +26,6 @@ before_script:
 - docker pull kittycash/teller || true
 
 script:
-- make test
 - "./docker-build.sh"
 
 after_script:

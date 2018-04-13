@@ -1,6 +1,7 @@
 #!/bin/bash
 
 if [ ! -f ~/.netrc ] ; then
+  echo "Configuring private dependency access"
   # configuring private dependency access:
   #https://docs.travis-ci.com/user/languages/go/#Installing-Private-Dependencies
   echo "machine github.com
@@ -32,6 +33,9 @@ fi
 
 echo Running "'dep ensure -v'"
 dep ensure -v || exit 1
+
+echo "Running 'make test'"
+make test || exit 1
 
 for tag in $(./docker-tags.sh) ; do
   docker build --pull --cache-from kittycash/teller --tag "$tag" . || exit 1
