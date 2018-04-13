@@ -1,11 +1,40 @@
+sudo: required
+
+services:
+- docker
+
+env:
+  global:
+  - GITHUB_USER=kittycashrobot
+  - REGISTRY_USER=kittycashrobot
+  # REGISTRY_PASS=...
+  - secure: GfwuC8uTsYV4hweBuALExZ1g6XwdlzqgAj+5hRiq6xMvHHuSJsUh/SbbKS/5h4otu7FSpjdI2wYaiMa50/iV6e+663ACVtGCOmLS0ERVsVsDlfAPcIoiFGUzY0PilG38S918lFcGQabwDedW8A2hmdGkRgYsvgctUi2yXZerC7v2D+8qSBNYgHJxwqS6ciXWD/ISJ+VxL+lfCzoFzaEevwpCAcj96UpdBmUrf3qYTygY3Bfx9UV5AYV7lWc2LPmB+Qx/WT1i6NPimftieaw1rwNyTtY81KYwH6LuUNooIR73qxU2mfuLUcrWpUJak5oNDtjj1fY9IgZX2ehv/Otfg618YQ+NhTEr88caiZhV70XDTaTkBwvHxINVfsVY/JKwq5l++xNp2UMwsE55ab0k0LFbYInUpWgTT/7tQyqaJuFjzpyaEkwGj3thM+qo+TA2Cu4ZWbuukl4geqN6xBWduaRe/L3SZbOGYOiFbn5hDDF1OeGT8kKkeeq4XTQWg934GjvFF3FK3i1y8pOJK2TdaFoteHzDwHrUtmkB3wi8LynafIyMpdGuPewH1Ikc+coR9LugXlrYToUHG9IAH/aRrRBIgr2z9g31DiQG6klXDCOm+OTez6z5SmiY+Y2d5ROXsIec6eCdmr48iuBlIaIc9fV7Uw9I6x1ZsXJliY4/FE4=
+  # GITHUB_KEY=...
+  - secure: nwbakmnOZyfNJU44vNwGINkIsf2XO/UPRMZeDaQjKq7+iKU+k0QUoUx+VW+ZzCyypM5T3pgZZ9O8kFtcbtpdt96Kbcqkt/w1zY+A1SRfWpkD0qRdACVM+PLx1PrCNqa2ma5ElC29KweLX3S6mfupyzcP1Lknaiv5BNCwJghNEwC8kDRvzRugCiawqm/ApJqsjoGtkRup09fo2cBuqngxm5FcFvHGvNSbpJwehfRWTQJZQEI/CUCJADs2vLZ4HuGSstam8dgJHj61xufv1okMXWa5NQfnu9vg6aQeKaKp6jXw4PDzmgc+n5bidKL7DSK9JR/f3N3Xh9cp1EPXogY9cQNeNWYfofkULdVVLj0UMbnp68HlIW5tUE7ootfHbK5zcW294pJ8BYKFOQt0z/m13ShfaVRZZS3gBQ5uDqkCfX/jmoXzYsFW0zxlrn0HB0A62fY3825snGdMxwMM44pu26OWQ1TNvObtN1zs8MoIuE1km+ZH8Pka+Ro/uGrBL/NbGwXfTIz2XE5vOcNC3zfpROCqMCvVkqdoY/yt8WoqthfUXjn9/mQuWArpFeL2Hhqou0AVH0qbGo9aV9Ayb1idvkU19Zh3jWIGTDgnmYU7nK2iP30PlsO6FFSOX9Qn5zs1FG50U3Pz+ySNbmY5G8PYAkuPSP7qenR7AY8IS7Yu0aE=
+
 language: go
 
 go:
-    - "1.9"
-    - "1.10"
+- '1.9'
+- '1.10'
 
 install:
   - make install-linters
 
+before_script:
+- docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+- docker pull kittycash/teller || true
+
 script:
-  - make test
+- make test
+- "./docker-build.sh"
+
+after_script:
+- docker images
+
+deploy:
+  provider: script
+  script: "./docker-deploy.sh"
+  on:
+    all_branches: true
+    condition: $TRAVIS_BRANCH =~ ^develop|master$ || $(git tag --points-at HEAD) != ""
