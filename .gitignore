@@ -8,4 +8,5 @@ cert-cache
 cover.out
 coverage.html
 
-vendor/github.com/kittycash/*
+vendor/github.com/kittycash/
+
