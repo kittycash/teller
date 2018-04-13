@@ -4,8 +4,8 @@ if [ ! -f ~/.netrc ] ; then
   # configuring private dependency access:
   #https://docs.travis-ci.com/user/languages/go/#Installing-Private-Dependencies
   echo "machine github.com
-  login $DOCKER_USER
-  password $DOCKER_KEY
+  login $GITHUB_USER
+  password $GITHUB_KEY
 " > ~/.netrc
   chmod 600 ~/.netrc
 fi
