@@ -7,3 +7,5 @@ cert-cache
 *.wlt
 cover.out
 coverage.html
+
+vendor/github.com/kittycash/*
